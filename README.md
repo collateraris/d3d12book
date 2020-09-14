@@ -1,2 +1,2 @@
-# d3d12book
- Luna "Introduction to 3D Game Programming with DirectX 12"
+# LearningDirectX12
+This repository is intended to be used as a code repository for learning DirectX 12. The tutorials can be found on https://www.3dgep.com
