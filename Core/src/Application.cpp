@@ -5,6 +5,8 @@
 #include <Game.h>
 #include <CommandQueue.h>
 #include <Window.h>
+#include <DescriptorAllocator.h>
+#include <URootObject.h>
 
 using namespace dx12demo::core;
 
@@ -16,8 +18,8 @@ static Application* gs_pSingelton;
 
 struct MakeWindow : public Window
 {
-    MakeWindow(Application* app, HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync)
-        : Window(app, hWnd, windowName, clientWidth, clientHeight, vSync)
+    MakeWindow(HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync)
+        : Window(hWnd, windowName, clientWidth, clientHeight, vSync)
     {}
 };
 
@@ -27,8 +29,11 @@ Application& Application::Create(HINSTANCE hInst)
     assert(bIsInstanced == false);
 
     if (!gs_pSingelton)
+    {
         gs_pSingelton = new Application(hInst);
-    bIsInstanced = true;
+        URootObject::SetApp(gs_pSingelton);
+        bIsInstanced = true;
+    }
 
     return *gs_pSingelton;
 }
@@ -246,7 +251,7 @@ std::shared_ptr<Window> Application::CreateRenderWindow(const std::wstring& wind
         return nullptr;
     }
 
-    pWindow = std::make_shared<MakeWindow>(this, hWnd, windowName, clientWidth, clientHeight, vSync);
+    pWindow = std::make_shared<MakeWindow>(hWnd, windowName, clientWidth, clientHeight, vSync);
 
     m_Windows.insert(WindowMap::value_type(hWnd, pWindow));
     m_WindowByName.insert(WindowNameMap::value_type(windowName, pWindow));
@@ -297,7 +302,7 @@ void Application::Quit(int exitCode)
     PostQuitMessage(exitCode);
 }
 
-Microsoft::WRL::ComPtr<ID3D12Device2> Application::GetDevice() const
+const Microsoft::WRL::ComPtr<ID3D12Device2>& Application::GetDevice() const
 {
     return m_d3d12Device;
 }
@@ -374,6 +379,28 @@ bool Application::IsWindowsEmpty() const
     return m_Windows.empty();
 }
 
+uint64_t Application::GetFrameCount() const
+{
+    return m_FrameCount;
+}
+
+void Application::IncFrameCount()
+{
+    ++m_FrameCount;
+}
+
+DescriptorAllocation Application::AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors/* = 1*/)
+{
+    return m_DescriptorAllocators[type]->Allocate(numDescriptors);
+}
+
+void Application::ReleaseStaleDescriptors(uint64_t finishedFrame)
+{
+    for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
+    {
+        m_DescriptorAllocators[i]->ReleaseStaleDescriptors(finishedFrame);
+    }
+}
 
 MouseButtonEventArgs::MouseButton DecodeMouseButton(UINT messageID)
 {
@@ -417,10 +444,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
         case WM_PAINT:
         {
+            gs_pSingelton->IncFrameCount();
             // Delta time will be filled in by the Window.
-            UpdateEventArgs updateEventArgs(0.0f, 0.0f);
+            UpdateEventArgs updateEventArgs(0.0f, 0.0f, gs_pSingelton->GetFrameCount());
             pWindow->OnUpdate(updateEventArgs);
-            RenderEventArgs renderEventArgs(0.0f, 0.0f);
+            RenderEventArgs renderEventArgs(0.0f, 0.0f, gs_pSingelton->GetFrameCount());
             // Delta time will be filled in by the Window.
             pWindow->OnRender(renderEventArgs);
         }

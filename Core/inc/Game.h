@@ -2,6 +2,7 @@
 
 #include <Events.h>
 #include <Application.h>
+#include <URootObject.h>
 
 #include <memory>
 #include <string>
@@ -10,10 +11,10 @@ namespace dx12demo::core
 {
 	class Window;
 
-	class Game : public std::enable_shared_from_this<Game>
+	class Game : public URootObject, public std::enable_shared_from_this<Game>
 	{
 	public:
-		Game(Application* app, const std::wstring& name, int width, int height, bool vSync);
+		Game(const std::wstring& name, int width, int height, bool vSync);
 		virtual ~Game();
 
         int GetClientWidth() const;
@@ -93,7 +94,6 @@ namespace dx12demo::core
         virtual void OnWindowDestroy();
 
         std::shared_ptr<Window> m_pWindow;
-        Application* m_pApplication;
 
     private:
 

@@ -7,18 +7,13 @@
 
 namespace dx12demo
 {
-    namespace core
-    {
-        class Application;
-    }
-
 	class Lesson1_cube3d : public core::Game
 	{
 	public:
 
         using super = Game;
 
-        Lesson1_cube3d(core::Application* app, const std::wstring& name, int width, int height, bool vSync = false);
+        Lesson1_cube3d(const std::wstring& name, int width, int height, bool vSync = false);
         /**
          *  Load content required for the demo.
          */

@@ -3,20 +3,22 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include <URootObject.h>
+
 #include <wrl.h>
 #include <d3d12.h>
 #include <dxgi1_5.h>
 #include <memory>
 
 #include <Events.h>
-#include <Application.h>
 #include <HighResolutionClock.h>
+#include <Application.h>
 
 namespace dx12demo::core
 {
 	class Game;
 
-	class Window
+	class Window : public URootObject
 	{
 	public:
 		// Number of swapchain back buffers.
@@ -62,7 +64,7 @@ namespace dx12demo::core
 		friend class Game;
 
 		Window() = delete;
-		Window(Application* app, HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync);
+		Window(HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync);
 		virtual ~Window();
 
 		// Register a Game with this window. This allows
@@ -114,7 +116,6 @@ namespace dx12demo::core
 		uint64_t m_FrameCounter;
 
 		std::weak_ptr<Game> m_pGame;
-		Application* m_pApplication = nullptr;
 
 		Microsoft::WRL::ComPtr<IDXGISwapChain4> m_dxgiSwapChain;
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_d3d12RTVDescriptorHeap;

@@ -38,4 +38,5 @@ target_link_libraries( Lesson1_cube3D
     Core
     D3DCompiler.lib
     Shlwapi.lib
+	DirectXTex
 )

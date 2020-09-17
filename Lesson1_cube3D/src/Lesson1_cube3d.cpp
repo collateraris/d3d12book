@@ -36,8 +36,8 @@ static WORD g_Indicies[36] =
     4, 0, 3, 4, 3, 7
 };
 
-Lesson1_cube3d::Lesson1_cube3d(core::Application* app, const std::wstring& name, int width, int height, bool vSync)
-    : super(app, name, width, height, vSync)
+Lesson1_cube3d::Lesson1_cube3d(const std::wstring& name, int width, int height, bool vSync)
+    : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
     , m_Viewport(CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)))
     , m_FoV(45.0)
@@ -52,7 +52,7 @@ void Lesson1_cube3d::UpdateBufferResource(
     size_t numElements, size_t elementSize, const void* bufferData,
     D3D12_RESOURCE_FLAGS flags)
 {
-    auto device = m_pApplication->GetDevice();
+    auto& device = GetApp().GetDevice();
 
     size_t bufferSize = numElements * elementSize;
 
@@ -89,7 +89,7 @@ void Lesson1_cube3d::UpdateBufferResource(
 
 bool Lesson1_cube3d::LoadContent()
 {
-    auto& app = *m_pApplication;
+    auto& app = GetApp();
     auto device = app.GetDevice();
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
@@ -217,7 +217,7 @@ void Lesson1_cube3d::ResizeDepthBuffer(int width, int height)
 {
     if (m_ContentLoaded)
     {
-        auto& app = *m_pApplication;
+        auto& app = GetApp();
 
         // Flush any GPU commands that might be referencing the depth buffer.
         app.Flush();
@@ -336,7 +336,7 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
-    auto commandQueue = m_pApplication->GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
     auto commandList = commandQueue->GetCommandList();
 
     UINT currentBackBufferIndex = m_pWindow->GetCurrentBackBufferIndex();
@@ -394,7 +394,7 @@ void Lesson1_cube3d::OnKeyPressed(core::KeyEventArgs& e)
     switch (e.Key)
     {
     case KeyCode::Escape:
-        m_pApplication->Quit(0);
+        GetApp().Quit(0);
         break;
     case KeyCode::Enter:
         if (e.Alt)

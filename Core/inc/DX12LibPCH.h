@@ -1,5 +1,3 @@
-#pragma once
-
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h> // For CommandLineToArgvW
@@ -25,21 +23,31 @@
 using namespace Microsoft::WRL;
 
 // DirectX 12 specific headers.
-#include <d3d12.h>
+#include "d3dx12.h"
 #include <dxgi1_6.h>
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
+#include <DirectXTex.h>
 
-// D3D12 extension library.
-#include <d3dx12.h>
+using namespace DirectX;
 
 // STL Headers
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
+#include <filesystem>
 #include <map>
-#include <unordered_map>
 #include <memory>
+#include <mutex>
+#include <new>
+#include <string>
+#include <unordered_map>
+#include <thread>
+#include <vector>
+
+namespace fs = std::filesystem;
 
 // Helper functions
 #include <Helpers.h>

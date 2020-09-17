@@ -6,7 +6,7 @@
 
 using namespace dx12demo::core;
 
-Window::Window(Application* application, HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync)
+Window::Window(HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync)
     : m_hWnd(hWnd)
     , m_WindowName(windowName)
     , m_ClientWidth(clientWidth)
@@ -15,15 +15,13 @@ Window::Window(Application* application, HWND hWnd, const std::wstring& windowNa
     , m_Fullscreen(false)
     , m_FrameCounter(0)
 {
-    assert(application);
+    auto& app = GetApp();
 
-    m_pApplication = application;
-
-    m_IsTearingSupported = m_pApplication->IsTearingSupported();
+    m_IsTearingSupported = app.IsTearingSupported();
 
     m_dxgiSwapChain = CreateSwapChain();
-    m_d3d12RTVDescriptorHeap = m_pApplication->CreateDescriptorHeap(BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    m_RTVDescriptorSize = m_pApplication->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    m_d3d12RTVDescriptorHeap = app.CreateDescriptorHeap(BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    m_RTVDescriptorSize = app.GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
     UpdateRenderTargetViews();
 }
@@ -164,7 +162,7 @@ void Window::RegisterCallbacks(std::shared_ptr<Game> pGame)
     return;
 }
 
-void Window::OnUpdate(UpdateEventArgs&)
+void Window::OnUpdate(UpdateEventArgs& e)
 {
     m_UpdateClock.Tick();
 
@@ -172,18 +170,18 @@ void Window::OnUpdate(UpdateEventArgs&)
     {
         m_FrameCounter++;
 
-        UpdateEventArgs updateEventArgs(m_UpdateClock.GetDeltaSeconds(), m_UpdateClock.GetTotalSeconds());
+        UpdateEventArgs updateEventArgs(m_UpdateClock.GetDeltaSeconds(), m_UpdateClock.GetTotalSeconds(), e.FrameNumber);
         pGame->OnUpdate(updateEventArgs);
     }
 }
 
-void Window::OnRender(RenderEventArgs&)
+void Window::OnRender(RenderEventArgs& e)
 {
     m_RenderClock.Tick();
 
     if (auto pGame = m_pGame.lock())
     {
-        RenderEventArgs renderEventArgs(m_RenderClock.GetDeltaSeconds(), m_RenderClock.GetTotalSeconds());
+        RenderEventArgs renderEventArgs(m_RenderClock.GetDeltaSeconds(), m_RenderClock.GetTotalSeconds(), e.FrameNumber);
         pGame->OnRender(renderEventArgs);
     }
 }
@@ -248,7 +246,7 @@ void Window::OnResize(ResizeEventArgs& e)
         m_ClientWidth = std::max(1, e.Width);
         m_ClientHeight = std::max(1, e.Height);
 
-        m_pApplication->Flush();
+        GetApp().Flush();
 
         for (int i = 0; i < BufferCount; ++i)
         {
@@ -295,7 +293,7 @@ Microsoft::WRL::ComPtr<IDXGISwapChain4> Window::CreateSwapChain()
     swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
     // It is recommended to always allow tearing if tearing support is available.
     swapChainDesc.Flags = m_IsTearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
-    ID3D12CommandQueue* pCommandQueue = m_pApplication->GetCommandQueue()->GetD3D12CommandQueue().Get();
+    ID3D12CommandQueue* pCommandQueue = GetApp().GetCommandQueue()->GetD3D12CommandQueue().Get();
 
     ComPtr<IDXGISwapChain1> swapChain1;
     ThrowIfFailed(dxgiFactory4->CreateSwapChainForHwnd(
@@ -319,7 +317,7 @@ Microsoft::WRL::ComPtr<IDXGISwapChain4> Window::CreateSwapChain()
 
 void Window::UpdateRenderTargetViews()
 {
-    auto device = m_pApplication->GetDevice();
+    auto& device = GetApp().GetDevice();
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_d3d12RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 

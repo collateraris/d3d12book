@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DescriptorAllocation.h"
+
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl.h>
@@ -15,6 +17,7 @@ namespace dx12demo::core
 	class Window;
 	class Game;
 	class CommandQueue;
+	class DescriptorAllocator;
 
 	class Application
 	{
@@ -38,12 +41,18 @@ namespace dx12demo::core
 		int Run(std::shared_ptr<Game> pGame);
 		void Quit(int exitCode = 0);
 
-		Microsoft::WRL::ComPtr<ID3D12Device2> GetDevice() const;
+		const Microsoft::WRL::ComPtr<ID3D12Device2>& GetDevice() const;
 		std::shared_ptr<CommandQueue> GetCommandQueue(D3D12_COMMAND_LIST_TYPE type = D3D12_COMMAND_LIST_TYPE_DIRECT) const;
 		void Flush();
 
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(UINT numDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE type);
 		UINT GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE type) const;
+
+		DescriptorAllocation AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t numDescriptors = 1);
+
+		void ReleaseStaleDescriptors(uint64_t finishedFrame);
+
+		uint64_t GetFrameCount() const;
 
 	protected:
 
@@ -62,6 +71,8 @@ namespace dx12demo::core
 
 		bool IsWindowsEmpty() const;
 
+		void IncFrameCount();
+
 	private:
 
 		Application() = delete;
@@ -78,10 +89,13 @@ namespace dx12demo::core
 		std::shared_ptr<CommandQueue> m_ComputeCommandQueue;
 		std::shared_ptr<CommandQueue> m_CopyCommandQueue;
 
+		std::unique_ptr<DescriptorAllocator> m_DescriptorAllocators[D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES];
+
 		bool m_TearingSupported;
 
 		WindowMap m_Windows;
 		WindowNameMap m_WindowByName;
 
+		uint64_t m_FrameCount = 0;
 	};
 }
