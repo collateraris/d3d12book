@@ -74,6 +74,7 @@ namespace dx12demo::core
 
         // Return a typeless format from the given format.
         static DXGI_FORMAT GetTypelessFormat(DXGI_FORMAT format);
+        static DXGI_FORMAT GetSRGBFormat(DXGI_FORMAT format);
         static DXGI_FORMAT GetUAVCompatableFormat(DXGI_FORMAT format);
 
     private:

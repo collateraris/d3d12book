@@ -1,17 +1,18 @@
 #pragma once
 
+#include <URootObject.h>
+
 #include "d3dx12.h"
 #include <wrl.h>
 #include <vector>
 
 namespace dx12demo::core
 {
-	class RootSignature
+	class RootSignature : public URootObject
 	{
     public:
         RootSignature();
         RootSignature(
-            const Microsoft::WRL::ComPtr<ID3D12Device2>& device,
             const D3D12_ROOT_SIGNATURE_DESC1& rootSignatureDesc,
             D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion
         );
@@ -23,7 +24,6 @@ namespace dx12demo::core
         Microsoft::WRL::ComPtr<ID3D12RootSignature> GetRootSignature() const;
 
         void SetRootSignatureDesc(
-            const Microsoft::WRL::ComPtr<ID3D12Device2>& device,
             const D3D12_ROOT_SIGNATURE_DESC1& rootSignatureDesc,
             D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion
         );

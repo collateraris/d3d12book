@@ -52,6 +52,7 @@ void Lesson1_cube3d::UpdateBufferResource(
     size_t numElements, size_t elementSize, const void* bufferData,
     D3D12_RESOURCE_FLAGS flags)
 {
+    /*
     auto& device = GetApp().GetDevice();
 
     size_t bufferSize = numElements * elementSize;
@@ -85,10 +86,12 @@ void Lesson1_cube3d::UpdateBufferResource(
             *pDestinationResource, *pIntermediateResource,
             0, 0, 1, &subresourceData);
     }
+    */
 }
 
 bool Lesson1_cube3d::LoadContent()
 {
+    /*
     auto& app = GetApp();
     auto device = app.GetDevice();
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
@@ -204,6 +207,7 @@ bool Lesson1_cube3d::LoadContent()
 
     // Resize/Create the depth buffer.
     ResizeDepthBuffer(GetClientWidth(), GetClientHeight());
+    */
 
     return true;
 }
@@ -215,6 +219,7 @@ void Lesson1_cube3d::UnloadContent()
 
 void Lesson1_cube3d::ResizeDepthBuffer(int width, int height)
 {
+    /*
     if (m_ContentLoaded)
     {
         auto& app = GetApp();
@@ -253,6 +258,7 @@ void Lesson1_cube3d::ResizeDepthBuffer(int width, int height)
         device->CreateDepthStencilView(m_DepthBuffer.Get(), &dsv,
             m_DSVHeap->GetCPUDescriptorHandleForHeapStart());
     }
+    */
 }
 
 void Lesson1_cube3d::OnResize(core::ResizeEventArgs& e)
@@ -311,24 +317,26 @@ void Lesson1_cube3d::TransitionResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCom
     Microsoft::WRL::ComPtr<ID3D12Resource> resource,
     D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
+    /*
     CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
         resource.Get(),
         beforeState, afterState);
 
     commandList->ResourceBarrier(1, &barrier);
+    */
 }
 
 // Clear a render target.
 void Lesson1_cube3d::ClearRTV(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
     D3D12_CPU_DESCRIPTOR_HANDLE rtv, FLOAT* clearColor)
 {
-    commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+    //commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 }
 
 void Lesson1_cube3d::ClearDepth(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
     D3D12_CPU_DESCRIPTOR_HANDLE dsv, FLOAT depth)
 {
-    commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr);
+   // commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr);
 }
 
 
@@ -336,6 +344,7 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
+    /*
     auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
     auto commandList = commandQueue->GetCommandList();
 
@@ -385,6 +394,7 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
 
         commandQueue->WaitForFenceValue(m_FenceValues[currentBackBufferIndex]);
     }
+    */
 }
 
 void Lesson1_cube3d::OnKeyPressed(core::KeyEventArgs& e)

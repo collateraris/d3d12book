@@ -1,6 +1,7 @@
 #include <RootSignature.h>
 
 #include <DX12LibPCH.h>
+#include <Application.h>
 
 using namespace dx12demo::core;
 
@@ -11,14 +12,13 @@ RootSignature::RootSignature()
     , m_DescriptorTableBitMask(0)
 {}
 
-RootSignature::RootSignature(const Microsoft::WRL::ComPtr<ID3D12Device2>& device,
-    const D3D12_ROOT_SIGNATURE_DESC1& rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion)
+RootSignature::RootSignature(const D3D12_ROOT_SIGNATURE_DESC1& rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion)
     : m_RootSignatureDesc{}
     , m_NumDescriptorsPerTable{ 0 }
     , m_SamplerTableBitMask(0)
     , m_DescriptorTableBitMask(0)
 {
-    SetRootSignatureDesc(device, rootSignatureDesc, rootSignatureVersion);
+    SetRootSignatureDesc(rootSignatureDesc, rootSignatureVersion);
 }
 
 RootSignature::~RootSignature()
@@ -62,7 +62,6 @@ const D3D12_ROOT_SIGNATURE_DESC1& RootSignature::GetRootSignatureDesc() const
 }
 
 void RootSignature::SetRootSignatureDesc(
-    const Microsoft::WRL::ComPtr<ID3D12Device2>& device,
     const D3D12_ROOT_SIGNATURE_DESC1& rootSignatureDesc,
     D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion
 )
@@ -142,7 +141,7 @@ void RootSignature::SetRootSignatureDesc(
         rootSignatureVersion, &rootSignatureBlob, &errorBlob));
 
     // Create the root signature.
-    ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
+    ThrowIfFailed(GetApp().GetDevice()->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(),
         rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)));
 }
 

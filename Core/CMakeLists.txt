@@ -6,6 +6,7 @@ set( HEADER_FILES
     inc/CommandList.h	
     inc/CommandQueue.h
     inc/Game.h
+	inc/GenerateMipsPSO.h
 	inc/Events.h
     inc/Helpers.h
     inc/HighResolutionClock.h
@@ -21,7 +22,8 @@ set( HEADER_FILES
 	inc/Resource.h
     inc/ResourceStateTracker.h
     inc/Texture.h
-	inc/URootObject.h	
+	inc/URootObject.h
+	inc/ThreadSafeQueue.h
     inc/d3dx12.h
 )
 
@@ -31,6 +33,7 @@ set( SOURCE_FILES
     src/CommandQueue.cpp
     src/CommandList.cpp	
     src/Game.cpp
+	src/GenerateMipsPSO.cpp
     src/HighResolutionClock.cpp
     src/Window.cpp
 	src/UploadBuffer.cpp
@@ -46,13 +49,21 @@ set( SOURCE_FILES
 	src/URootObject.cpp
 )
 
+set( SHADER_FILES
+    shaders/GenerateMips_CS.hlsl
+)
+
 add_library( Core STATIC
     ${HEADER_FILES}
     ${SOURCE_FILES}
+	${SHADER_FILES}
 )
+
+source_group( "shaders" FILES ${SHADER_FILES} )
 
 target_include_directories( Core
     PUBLIC inc
+	PRIVATE "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
 target_link_libraries( Core
@@ -60,4 +71,18 @@ target_link_libraries( Core
     PUBLIC d3d12.lib
     PUBLIC dxgi.lib
     PUBLIC dxguid.lib
+)
+
+set_source_files_properties( ${SHADER_FILES}
+    PROPERTIES
+        VS_SHADER_MODEL 5.1
+        VS_SHADER_OUTPUT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/%(Filename).h"
+        VS_SHADER_DISABLE_OPTIMIZATIONS $<$<CONFIG:Debug>:ON>
+        VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
+)
+
+set_source_files_properties( shaders/GenerateMips_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_GenerateMips_CS
 )

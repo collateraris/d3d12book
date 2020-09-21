@@ -61,6 +61,9 @@ namespace dx12demo::core
 		// Destroy the application instance and all windows associated with this application.
 		virtual ~Application();
 
+		// Initialize the application instance.
+		void Initialize();
+
 		friend LRESULT CALLBACK ::WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 		Microsoft::WRL::ComPtr<IDXGIAdapter4> GetAdapter(bool bUseWarp);
