@@ -68,7 +68,7 @@ namespace dx12demo::core
     template<typename T>
     void ThreadSafeQueue<T>::WaitAndPop(T& value)
     {
-        std::lock_guard<std::mutex> lock(m_Mutex);
+        std::unique_lock<std::mutex> lock(m_Mutex);
         m_DataConditional.wait(lock, 
             [this]() {return !m_Queue.empty();
         });

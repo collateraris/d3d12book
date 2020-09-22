@@ -34,6 +34,11 @@ target_include_directories( Lesson1_cube3D
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 )
 
+# Enable C++17 compiler features.
+target_compile_features( Lesson1_cube3D 
+	PUBLIC cxx_std_17
+)
+
 target_link_libraries( Lesson1_cube3D
     Core
     D3DCompiler.lib

@@ -32,6 +32,11 @@ namespace dx12demo::core
 
 		bool IsTearingSupported() const;
 
+		/**
+		 * Check if the requested multisample quality is supported for the given format.
+		 */
+		DXGI_SAMPLE_DESC GetMultisampleQualityLevels(DXGI_FORMAT format, UINT numSamples, D3D12_MULTISAMPLE_QUALITY_LEVEL_FLAGS flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE) const;
+
 		std::shared_ptr<Window> CreateRenderWindow(const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync = true);
 		void DestroyWindow(const std::wstring& windowName);
 		void DestroyWindow(std::shared_ptr<Window> window);

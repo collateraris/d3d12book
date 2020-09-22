@@ -8,9 +8,8 @@
 
 using namespace dx12demo::core;
 
-UploadBuffer::UploadBuffer(Application* app, size_t pageSize/* = _2MB*/)
-    : m_pApplication(app),
-    m_PageSize(pageSize)
+UploadBuffer::UploadBuffer(size_t pageSize/* = _2MB*/)
+    : m_PageSize(pageSize)
 {}
 
 UploadBuffer::Allocation UploadBuffer::Allocate(size_t sizeInBytes, size_t alignment)
@@ -30,6 +29,16 @@ UploadBuffer::Allocation UploadBuffer::Allocate(size_t sizeInBytes, size_t align
     return m_CurrentPage->Allocate(sizeInBytes, alignment);
 }
 
+UploadBuffer::~UploadBuffer()
+{
+
+}
+
+size_t UploadBuffer::GetPageSize() const
+{
+    return m_PageSize;
+}
+
 std::shared_ptr<UploadBuffer::Page> UploadBuffer::RequestPage()
 {
     std::shared_ptr<Page> page;
@@ -41,7 +50,7 @@ std::shared_ptr<UploadBuffer::Page> UploadBuffer::RequestPage()
     }
     else
     {
-        page = std::make_shared<Page>(m_pApplication, m_PageSize);
+        page = std::make_shared<Page>(m_PageSize);
         m_PagePool.push_back(page);
     }
 
@@ -61,14 +70,13 @@ void UploadBuffer::Reset()
     }
 }
 
-UploadBuffer::Page::Page(Application* app, size_t sizeInBytes)
-    : m_pApplication(app)
-    , m_PageSize(sizeInBytes)
+UploadBuffer::Page::Page(size_t sizeInBytes)
+    : m_PageSize(sizeInBytes)
     , m_Offset(0)
     , m_CPUPtr(nullptr)
     , m_GPUPtr(D3D12_GPU_VIRTUAL_ADDRESS(0))
 {
-    auto device = m_pApplication->GetDevice();
+    auto& device = GetApp().GetDevice();
 
     ThrowIfFailed(device->CreateCommittedResource(
         &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),

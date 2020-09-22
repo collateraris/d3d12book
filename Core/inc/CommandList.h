@@ -28,6 +28,7 @@ namespace dx12demo::core
     class Texture;
     class UploadBuffer;
     class VertexBuffer;
+    class Scene;
 
     class CommandList : public URootObject
     {
@@ -35,13 +36,8 @@ namespace dx12demo::core
         CommandList(D3D12_COMMAND_LIST_TYPE type);
         virtual ~CommandList();
 
+        D3D12_COMMAND_LIST_TYPE GetCommandListType() const;
         const Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2>& GetGraphicsCommandList() const;
-
-        /**
-         * Set the currently bound descriptor heap.
-         * Should only be called by the DynamicDescriptorHeap class.
-         */
-        void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType, ID3D12DescriptorHeap* heap);
 
         /**
          * Transition a resource to a particular state.
@@ -53,6 +49,7 @@ namespace dx12demo::core
          */
         void TransitionBarrier(const Resource& resource, D3D12_RESOURCE_STATES stateAfter, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, bool flushBarriers = false);
         void TransitionBarrier(const Microsoft::WRL::ComPtr<ID3D12Resource>& resource, D3D12_RESOURCE_STATES stateAfter, UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, bool flushBarriers = false);
+ 
         /**
          * Add a UAV barrier to ensure that any writes to a resource have completed
          * before reading from the resource.
@@ -63,6 +60,7 @@ namespace dx12demo::core
          * to be in a particular state can run.
          */
         void UAVBarrier(const Resource& resource, bool flushBarriers = false);
+        void UAVBarrier(const Microsoft::WRL::ComPtr<ID3D12Resource>& resource, bool flushBarriers = false);
 
         /**
          * Add an aliasing barrier to indicate a transition between usages of two
@@ -82,7 +80,67 @@ namespace dx12demo::core
         void CopyResource(Resource& dstRes, const Resource& srcRes);
         void CopyResource(const Microsoft::WRL::ComPtr<ID3D12Resource>& dstRes, const Microsoft::WRL::ComPtr<ID3D12Resource>& srcRes);
 
-        void ReleaseTrackedObjects();
+        /**
+         * Resolve a multisampled resource into a non-multisampled resource.
+         */
+        void ResolveSubresource(Resource& dstRes, const Resource& srcRes, uint32_t dstSubresource = 0, uint32_t srcSubresource = 0);
+
+        /**
+         * Copy the contents to a vertex buffer in GPU memory.
+         */
+        void CopyVertexBuffer(VertexBuffer& vertexBuffer, size_t numVertices, size_t vertexStride, const void* vertexBufferData);
+        template<typename T>
+        void CopyVertexBuffer(VertexBuffer& vertexBuffer, const std::vector<T>& vertexBufferData)
+        {
+            CopyVertexBuffer(vertexBuffer, vertexBufferData.size(), sizeof(T), vertexBufferData.data());
+        }
+
+        /**
+         * Copy the contents to a index buffer in GPU memory.
+         */
+        void CopyIndexBuffer(IndexBuffer& indexBuffer, size_t numIndicies, DXGI_FORMAT indexFormat, const void* indexBufferData);
+        template<typename T>
+        void CopyIndexBuffer(IndexBuffer& indexBuffer, const std::vector<T>& indexBufferData)
+        {
+            assert(sizeof(T) == 2 || sizeof(T) == 4);
+
+            DXGI_FORMAT indexFormat = (sizeof(T) == 2) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
+            CopyIndexBuffer(indexBuffer, indexBufferData.size(), indexFormat, indexBufferData.data());
+        }
+
+        /**
+         * Copy the contents to a byte address buffer in GPU memory.
+         */
+        void CopyByteAddressBuffer(ByteAddressBuffer& byteAddressBuffer, size_t bufferSize, const void* bufferData);
+        template<typename T>
+        void CopyByteAddressBuffer(ByteAddressBuffer& byteAddressBuffer, const T& data)
+        {
+            CopyByteAddressBuffer(byteAddressBuffer, sizeof(T), &data);
+        }
+
+        /**
+         * Copy the contents to a structured buffer in GPU memory.
+         */
+        void CopyStructuredBuffer(StructuredBuffer& structuredBuffer, size_t numElements, size_t elementSize, const void* bufferData);
+        template<typename T>
+        void CopyStructuredBuffer(StructuredBuffer& structuredBuffer, const std::vector<T>& bufferData)
+        {
+            CopyStructuredBuffer(structuredBuffer, bufferData.size(), sizeof(T), bufferData.data());
+        }
+
+        /**
+         * Set the current primitive topology for the rendering pipeline.
+         */
+        void SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY primitiveTopology);
+
+        void LoadTextureFromFile(Texture& texture, const std::wstring& fileName, TextureUsage textureUsage = TextureUsage::Albedo);
+
+        void LoadSceneFromFile(Scene& scene, const std::wstring& filname);
+
+        void ClearTexture(const Texture& texture, const float clearColor[4]);
+        void ClearDepthStencilTexture(const Texture& texture, D3D12_CLEAR_FLAGS clearFlags, float depth = 1.0f, uint8_t stencil = 0);
+
+        void PanoToCubemap(Texture& cubemap, const Texture& pano);
 
         /**
          * Set a dynamic constant buffer data to an inline descriptor in the root
@@ -117,6 +175,57 @@ namespace dx12demo::core
             SetCompute32BitConstants(rootParameterIndex, sizeof(T) / sizeof(uint32_t), &constants);
         }
 
+        void SetVertexBuffer(uint32_t slot, const VertexBuffer& vertexBuffer);
+
+        /**
+         * Set dynamic vertex buffer data to the rendering pipeline.
+         */
+        void SetDynamicVertexBuffer(uint32_t slot, size_t numVertices, size_t vertexSize, const void* vertexBufferData);
+        template<typename T>
+        void SetDynamicVertexBuffer(uint32_t slot, const std::vector<T>& vertexBufferData)
+        {
+            SetDynamicVertexBuffer(slot, vertexBufferData.size(), sizeof(T), vertexBufferData.data());
+        }
+
+        void SetIndexBuffer(const IndexBuffer& indexBuffer);
+
+        /**
+         * Bind dynamic index buffer data to the rendering pipeline.
+         */
+        void SetDynamicIndexBuffer(size_t numIndicies, DXGI_FORMAT indexFormat, const void* indexBufferData);
+        template<typename T>
+        void SetDynamicIndexBuffer(const std::vector<T>& indexBufferData)
+        {
+            static_assert(sizeof(T) == 2 || sizeof(T) == 4);
+
+            DXGI_FORMAT indexFormat = (sizeof(T) == 2) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
+            SetDynamicIndexBuffer(indexBufferData.size(), indexFormat, indexBufferData.data());
+        }
+
+        /**
+         * Set dynamic structured buffer contents.
+         */
+        void SetGraphicsDynamicStructuredBuffer(uint32_t slot, size_t numElements, size_t elementSize, const void* bufferData);
+        template<typename T>
+        void SetGraphicsDynamicStructuredBuffer(uint32_t slot, const std::vector<T>& bufferData)
+        {
+            SetGraphicsDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
+        }
+
+        void SetViewport(const D3D12_VIEWPORT& viewport);
+        void SetViewports(const std::vector<D3D12_VIEWPORT>& viewports);
+
+        void SetScissorRect(const D3D12_RECT& scissorRect);
+        void SetScissorRects(const std::vector<D3D12_RECT>& scissorRects);
+
+        void SetPipelineState(Microsoft::WRL::ComPtr<ID3D12PipelineState> pipelineState);
+
+        /**
+         * Set the current root signature on the command list.
+         */
+        void SetGraphicsRootSignature(const RootSignature& rootSignature);
+        void SetComputeRootSignature(const RootSignature& rootSignature);
+
         /**
          * Set the SRV on the graphics pipeline.
          */
@@ -145,13 +254,17 @@ namespace dx12demo::core
         );
 
         /**
+         * Set the render targets for the graphics rendering pipeline.
+         */
+        void SetRenderTarget(const RenderTarget& renderTarget);
+
+        /**
          * Generate mips for the texture.
          * The first subresource is used to generate the mip chain.
          * Mips are automatically generated for textures loaded from files.
          */
         void GenerateMips(Texture& texture);
 
-        void LoadTextureFromFile(Texture& texture, const std::wstring& fileName, TextureUsage textureUsage = TextureUsage::Albedo);
         void CopyTextureSubresource(Texture& texture, uint32_t firstSubresource, uint32_t numSubresources, D3D12_SUBRESOURCE_DATA* subresourceData);
         /**
          * Draw geometry.
@@ -159,6 +272,19 @@ namespace dx12demo::core
         void Draw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t startVertex = 0, uint32_t startInstance = 0);
         void DrawIndexed(uint32_t indexCount, uint32_t instanceCount = 1, uint32_t startIndex = 0, int32_t baseVertex = 0, uint32_t startInstance = 0);
 
+        /**
+         * Close the command list.
+         * Used by the command queue.
+         *
+         * @param pendingCommandList The command list that is used to execute pending
+         * resource barriers (if any) for this command list.
+         *
+         * @return true if there are any pending resource barriers that need to be
+         * processed.
+         */
+        bool Close(CommandList& pendingCommandList);
+        // Just close the command list. This is useful for pending command lists.
+        void Close();
 
         /**
          * Dispatch a compute shader.
@@ -166,36 +292,16 @@ namespace dx12demo::core
         void Dispatch(uint32_t numGroupsX, uint32_t numGroupsY = 1, uint32_t numGroupsZ = 1);
 
         /**
-         * Set the current root signature on the command list.
-         */
-        void SetGraphicsRootSignature(const RootSignature& rootSignature);
-        void SetComputeRootSignature(const RootSignature& rootSignature);
-
-        /***************************************************************************
-         * Methods defined below are only intended to be used by internal classes. *
-         ***************************************************************************/
-
-         /**
-          * Close the command list.
-          * Used by the command queue.
-          *
-          * @param pendingCommandList The command list that is used to execute pending
-          * resource barriers (if any) for this command list.
-          *
-          * @return true if there are any pending resource barriers that need to be
-          * processed.
-          */
-        bool Close(CommandList& pendingCommandList);
-        // Just close the command list. This is useful for pending command lists.
-        void Close();
-
-        /**
          * Reset the command list. This should only be called by the CommandQueue
          * before the command list is returned from CommandQueue::GetCommandList.
          */
         void Reset();
 
+        void SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType, ID3D12DescriptorHeap* heap);
+
         std::shared_ptr<CommandList> GetGenerateMipsCommandList() const;
+
+        void ReleaseTrackedObjects();
 
     protected:
 
@@ -205,6 +311,11 @@ namespace dx12demo::core
 
         // Generate mips for UAV compatible textures.
         void GenerateMips_UAV(Texture& texture, bool isSRGB);
+
+        // Copy the contents of a CPU buffer to a GPU buffer (possibly replacing the previous buffer contents).
+        void CopyBuffer(Buffer& buffer, size_t numElements, size_t elementSize, const void* bufferData, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
+
+        void BindDescriptorHeaps();
 
     private:
 

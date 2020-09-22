@@ -12,7 +12,7 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type)
     , m_CommandListType(type)
     , m_bProcessInFlightCommandLists(true)
 {
-    auto device = GetApp().GetDevice();
+    auto& device = GetApp().GetDevice();
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
     desc.Type = type;

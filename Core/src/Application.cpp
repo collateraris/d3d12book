@@ -32,6 +32,7 @@ Application& Application::Create(HINSTANCE hInst)
     {
         gs_pSingelton = new Application(hInst);
         URootObject::SetApp(gs_pSingelton);
+        gs_pSingelton->Initialize();
         bIsInstanced = true;
     }
 
@@ -56,15 +57,6 @@ Application::Application(HINSTANCE hInst)
     // be rendered in a DPI sensitive fashion.
     SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-#if defined(_DEBUG)
-    // Always enable the debug layer before doing anything DX12 related
-    // so all possible errors generated while creating DX12 objects
-    // are caught by the debug layer.
-    ComPtr<ID3D12Debug> debugInterface;
-    ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface)));
-    debugInterface->EnableDebugLayer();
-#endif
-
     WNDCLASSEXW wndClass = { 0 };
 
     wndClass.cbSize = sizeof(WNDCLASSEX);
@@ -80,27 +72,59 @@ Application::Application(HINSTANCE hInst)
     {
         MessageBoxA(NULL, "Unable to register the window class.", "Error", MB_OK | MB_ICONERROR);
     }
-
-    m_dxgiAdapter = GetAdapter(false);
-    if (m_dxgiAdapter)
-    {
-        m_d3d12Device = CreateDevice(m_dxgiAdapter);
-    }
-
-    if (m_d3d12Device)
-    {
-        m_DirectCommandQueue = std::make_shared<CommandQueue>(m_d3d12Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
-        m_ComputeCommandQueue = std::make_shared<CommandQueue>(m_d3d12Device, D3D12_COMMAND_LIST_TYPE_COMPUTE);
-        m_CopyCommandQueue = std::make_shared<CommandQueue>(m_d3d12Device, D3D12_COMMAND_LIST_TYPE_COPY);
-
-        m_TearingSupported = CheckTearingSupport();
-    }
 }
 
 Application::~Application()
 {
     Flush();
 }
+
+void Application::Initialize()
+{
+#if defined(_DEBUG)
+    // Always enable the debug layer before doing anything DX12 related
+    // so all possible errors generated while creating DX12 objects
+    // are caught by the debug layer.
+    ComPtr<ID3D12Debug1> debugInterface;
+    ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface)));
+    debugInterface->EnableDebugLayer();
+    // Enable these if you want full validation (will slow down rendering a lot).
+    //debugInterface->SetEnableGPUBasedValidation(TRUE);
+    //debugInterface->SetEnableSynchronizedCommandQueueValidation(TRUE);
+#endif
+
+    auto dxgiAdapter = GetAdapter(false);
+    if (!dxgiAdapter)
+    {
+        // If no supporting DX12 adapters exist, fall back to WARP
+        dxgiAdapter = GetAdapter(true);
+    }
+
+    if (dxgiAdapter)
+    {
+        m_d3d12Device = CreateDevice(dxgiAdapter);
+    }
+    else
+    {
+        throw std::exception("DXGI adapter enumeration failed.");
+    }
+
+    m_DirectCommandQueue = std::make_shared<CommandQueue>(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    m_ComputeCommandQueue = std::make_shared<CommandQueue>(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+    m_CopyCommandQueue = std::make_shared<CommandQueue>(D3D12_COMMAND_LIST_TYPE_COPY);
+
+    m_TearingSupported = CheckTearingSupport();
+
+    // Create descriptor allocators
+    for (int i = 0; i < D3D12_DESCRIPTOR_HEAP_TYPE_NUM_TYPES; ++i)
+    {
+        m_DescriptorAllocators[i] = std::make_unique<DescriptorAllocator>(static_cast<D3D12_DESCRIPTOR_HEAP_TYPE>(i));
+    }
+
+    // Initialize frame counter 
+    m_FrameCount = 0;
+}
+
 
 Microsoft::WRL::ComPtr<IDXGIAdapter4> Application::GetAdapter(bool bUseWarp)
 {
@@ -214,6 +238,32 @@ bool Application::CheckTearingSupport()
 bool Application::IsTearingSupported() const
 {
     return m_TearingSupported;
+}
+
+DXGI_SAMPLE_DESC Application::GetMultisampleQualityLevels(DXGI_FORMAT format, UINT numSamples, 
+    D3D12_MULTISAMPLE_QUALITY_LEVEL_FLAGS flags/* = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE*/) const
+{
+    DXGI_SAMPLE_DESC sampleDesc = { 1, 0 };
+
+    D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS qualityLevels;
+    qualityLevels.Format = format;
+    qualityLevels.SampleCount = 1;
+    qualityLevels.Flags = flags;
+    qualityLevels.NumQualityLevels = 0;
+
+    while (qualityLevels.SampleCount <= numSamples 
+        && SUCCEEDED(m_d3d12Device->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, 
+            &qualityLevels, sizeof(D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS))) && qualityLevels.NumQualityLevels > 0)
+    {
+        // That works...
+        sampleDesc.Count = qualityLevels.SampleCount;
+        sampleDesc.Quality = qualityLevels.NumQualityLevels - 1;
+
+        // But can we do better?
+        qualityLevels.SampleCount *= 2;
+    }
+
+    return sampleDesc;
 }
 
 std::shared_ptr<Window> Application::GetWindowByName(const std::wstring& windowName)

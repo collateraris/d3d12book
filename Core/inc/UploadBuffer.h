@@ -1,5 +1,6 @@
 #pragma once
 
+#include <URootObject.h>
 #include <Defines.h>
 
 #include <wrl.h>
@@ -10,9 +11,7 @@
 
 namespace dx12demo::core
 {
-    class Application;
-
-	class UploadBuffer
+	class UploadBuffer : public URootObject
 	{
     public:
         // Use to upload data to the GPU
@@ -22,7 +21,7 @@ namespace dx12demo::core
             D3D12_GPU_VIRTUAL_ADDRESS GPU;
         };
 
-        explicit UploadBuffer(Application* app, size_t pageSize = _2MB);
+        explicit UploadBuffer(size_t pageSize = _2MB);
 
         virtual ~UploadBuffer();
 
@@ -34,10 +33,10 @@ namespace dx12demo::core
 
     private:
 
-        struct Page
+        struct Page : URootObject
         {
-            Page(Application* app, size_t sizeInBytes);
-            ~Page();
+            Page(size_t sizeInBytes);
+            virtual ~Page();
 
             bool HasSpace(size_t sizeInBytes, size_t alignment) const;
 
@@ -50,8 +49,6 @@ namespace dx12demo::core
 
             Microsoft::WRL::ComPtr<ID3D12Resource> m_d3d12Resource;
 
-            Application* m_pApplication = nullptr;
-
             // Base pointer.
             void* m_CPUPtr = nullptr;
             D3D12_GPU_VIRTUAL_ADDRESS m_GPUPtr;
@@ -61,8 +58,6 @@ namespace dx12demo::core
             // Current allocation offset in bytes.
             size_t m_Offset;
         };
-
-        Application* m_pApplication = nullptr;
 
         // A pool of memory pages.
         using PagePool = std::deque< std::shared_ptr<Page> >;

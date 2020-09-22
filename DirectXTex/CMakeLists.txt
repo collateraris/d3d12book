@@ -93,6 +93,11 @@ target_include_directories( DirectXTex
     PUBLIC DirectXTex
 )
 
+# Enable C++17 compiler features.
+target_compile_features( DirectXTex 
+	PUBLIC cxx_std_17
+)
+
 add_custom_command( OUTPUT ${COMPILED_SHADER_FILES} ${SHADER_SYMBOL_FILES}
     COMMAND CompileShaders.cmd
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/DirectXTex/Shaders"
