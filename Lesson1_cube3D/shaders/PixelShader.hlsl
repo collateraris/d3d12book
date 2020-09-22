@@ -1,9 +1,14 @@
 struct PixelShaderInput
 {
-	float4 Color    : COLOR;
+    float4 PositionVS : POSITION;
+    float3 NormalVS   : NORMAL;
+    float2 TexCoord   : TEXCOORD;
 };
 
-float4 main( PixelShaderInput IN ) : SV_Target
+Texture2D DiffuseTexture            : register( t2 );
+SamplerState LinearRepeatSampler    : register(s0);
+
+float4 main(PixelShaderInput IN) : SV_Target
 {
-    return IN.Color;
+    return DiffuseTexture.Sample( LinearRepeatSampler, IN.TexCoord );
 }

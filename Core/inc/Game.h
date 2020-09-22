@@ -83,6 +83,8 @@ namespace dx12demo::core
          */
         virtual void OnMouseWheel(MouseWheelEventArgs& e);
 
+        virtual void OnDPIScaleChanged(DPIScaleEventArgs& e);
+
         /**
          * Invoked when the attached window is resized.
          */

@@ -90,6 +90,11 @@ void Game::OnMouseWheel(MouseWheelEventArgs& e)
     // By default, do nothing.
 }
 
+void Game::OnDPIScaleChanged(DPIScaleEventArgs& e)
+{
+    // By default, do nothing.
+}
+
 void Game::OnResize(ResizeEventArgs& e)
 {
     m_Width = e.Width;

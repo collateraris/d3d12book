@@ -359,9 +359,9 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         throw std::exception("File not found.");
     }
 
-    std::lock_guard<std::mutex> lock(ms_TextureCacheMutex);
-    auto iter = ms_TextureCache.find(fileName);
-    if (iter != ms_TextureCache.end())
+    std::lock_guard<std::mutex> lock(CommandList::ms_TextureCacheMutex);
+    auto iter = CommandList::ms_TextureCache.find(fileName);
+    if (iter != CommandList::ms_TextureCache.end())
     {
         texture.SetTextureUsage(textureUsage);
         texture.SetD3D12Resource(iter->second);
@@ -475,7 +475,7 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         }
 
         // Add the texture resource to the texture cache.
-        ms_TextureCache[fileName] = textureResource.Get();
+        CommandList::ms_TextureCache[fileName] = textureResource.Get();
     }
 }
 

@@ -12,16 +12,40 @@ set( SRC_FILES
 set( SHADER_FILES
     shaders/VertexShader.hlsl
     shaders/PixelShader.hlsl
+	shaders/ScreenQuadVS.hlsl
+	shaders/ScreenQuadPS.hlsl
 )
 
-set_source_files_properties( shaders/VertexShader.hlsl PROPERTIES 
-    VS_SHADER_TYPE Vertex
-    VS_SHADER_MODEL 5.1
+set_source_files_properties( ${SHADER_FILES} 
+    PROPERTIES
+        VS_SHADER_OBJECT_FILE_NAME "${CMAKE_BINARY_DIR}/bin/%(Filename).cso"
+        VS_SHADER_MODEL 5.1
+        VS_SHADER_DISABLE_OPTIMIZATIONS $<$<CONFIG:Debug>:ON>
+        VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
 )
 
-set_source_files_properties( shaders/PixelShader.hlsl PROPERTIES 
-    VS_SHADER_TYPE Pixel
-    VS_SHADER_MODEL 5.1
+set_source_files_properties( shaders/VertexShader.hlsl
+    PROPERTIES 
+        VS_SHADER_TYPE Vertex
+		VS_SHADER_VARIABLE_NAME VertexShader
+)
+
+set_source_files_properties( shaders/PixelShader.hlsl
+    PROPERTIES 
+        VS_SHADER_TYPE Pixel
+		VS_SHADER_VARIABLE_NAME PixelShader
+)
+
+set_source_files_properties( shaders/ScreenQuadVS.hlsl
+    PROPERTIES 
+        VS_SHADER_TYPE Vertex
+		VS_SHADER_VARIABLE_NAME ScreenQuadVS
+)
+
+set_source_files_properties( shaders/ScreenQuadPS.hlsl
+    PROPERTIES 
+        VS_SHADER_TYPE Pixel
+		VS_SHADER_VARIABLE_NAME ScreenQuadPS
 )
 
 add_executable( Lesson1_cube3D WIN32
