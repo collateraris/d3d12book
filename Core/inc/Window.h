@@ -3,20 +3,25 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include <URootObject.h>
+
 #include <wrl.h>
 #include <d3d12.h>
 #include <dxgi1_5.h>
 #include <memory>
 
 #include <Events.h>
-#include <Application.h>
+#include <GUI.h>
 #include <HighResolutionClock.h>
+#include <Application.h>
+#include <RenderTarget.h>
+#include <Texture.h>
 
 namespace dx12demo::core
 {
 	class Game;
 
-	class Window
+	class Window : public URootObject, public std::enable_shared_from_this<Window>
 	{
 	public:
 		// Number of swapchain back buffers.
@@ -25,6 +30,8 @@ namespace dx12demo::core
 		HWND GetWindowHandle() const;
 
 		void Destroy();
+
+		float GetDPIScaling() const;
 
 		const std::wstring& GetWindowName() const;
 
@@ -35,6 +42,8 @@ namespace dx12demo::core
 		void SetVSync(bool vSync);
 		void ToggleVSync();
 
+		void Initialize();
+
 		bool IsFullScreen() const;
 
 		// Set the fullscreen state of the window.
@@ -44,13 +53,18 @@ namespace dx12demo::core
 		void Show();
 		void Hide();
 
-		UINT GetCurrentBackBufferIndex() const;
+		/**
+		* Present the swapchain's back buffer to the screen.
+		* Returns the current back buffer index after the present.
+		*
+		* @param texture The texture to copy to the swap chain's backbuffer before
+		* presenting. By default, this is an empty texture. In this case, no copy
+		* will be performed. Use the Window::GetRenderTarget method to get a render
+		* target for the window's color buffer.
+		*/
+		UINT Present(const Texture& texture = Texture());
 
-		UINT Present();
-
-		D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
-
-		Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
+		const RenderTarget& GetRenderTarget() const;
 
 	protected:
 		// The Window procedure needs to call protected methods of this class.
@@ -62,7 +76,7 @@ namespace dx12demo::core
 		friend class Game;
 
 		Window() = delete;
-		Window(Application* app, HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync);
+		Window(HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync);
 		virtual ~Window();
 
 		// Register a Game with this window. This allows
@@ -90,11 +104,15 @@ namespace dx12demo::core
 		// The window was resized.
 		virtual void OnResize(ResizeEventArgs& e);
 
+		virtual void OnDPIScaleChanged(DPIScaleEventArgs& e);
+
 		// Create the swapchian.
 		Microsoft::WRL::ComPtr<IDXGISwapChain4> CreateSwapChain();
 
 		// Update the render target views for the swapchain back buffers.
 		void UpdateRenderTargetViews();
+
+		void SetDPIScaling(float dpiScaling);
 
 	private:
 
@@ -102,6 +120,7 @@ namespace dx12demo::core
 		Window& operator=(const Window& other) = delete;
 
 		HWND m_hWnd;
+
 		std::wstring m_WindowName;
 
 		int m_ClientWidth;
@@ -111,19 +130,29 @@ namespace dx12demo::core
 
 		HighResolutionClock m_UpdateClock;
 		HighResolutionClock m_RenderClock;
-		uint64_t m_FrameCounter;
+
+		UINT64 m_FenceValues[BufferCount];
+		uint64_t m_FrameValues[BufferCount];
 
 		std::weak_ptr<Game> m_pGame;
-		Application* m_pApplication = nullptr;
 
 		Microsoft::WRL::ComPtr<IDXGISwapChain4> m_dxgiSwapChain;
-		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_d3d12RTVDescriptorHeap;
-		Microsoft::WRL::ComPtr<ID3D12Resource> m_d3d12BackBuffers[BufferCount];
+		HANDLE m_SwapChainEvent;
+		Texture m_BackBufferTextures[BufferCount];
+		// Marked mutable to allow modification in a const function.
+		mutable RenderTarget m_RenderTarget;
 
-		UINT m_RTVDescriptorSize;
 		UINT m_CurrentBackBufferIndex;
 
 		RECT m_WindowRect;
 		bool m_IsTearingSupported;
+
+		int m_PreviousMouseX;
+		int m_PreviousMouseY;
+
+		// Per-window DPI scaling.
+		float m_DPIScaling;
+
+		GUI m_GUI;
 	};
 }

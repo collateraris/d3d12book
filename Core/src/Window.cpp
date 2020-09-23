@@ -3,28 +3,33 @@
 #include <DX12LibPCH.h>
 #include <CommandQueue.h>
 #include <Game.h>
+#include <ResourceStateTracker.h>
+#include <CommandList.h>
 
 using namespace dx12demo::core;
 
-Window::Window(Application* application, HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync)
+Window::Window(HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync)
     : m_hWnd(hWnd)
     , m_WindowName(windowName)
     , m_ClientWidth(clientWidth)
     , m_ClientHeight(clientHeight)
     , m_VSync(vSync)
     , m_Fullscreen(false)
-    , m_FrameCounter(0)
+    , m_FenceValues{ 0 }
+    , m_FrameValues{ 0 }
 {
-    assert(application);
+    m_DPIScaling = GetDpiForWindow(hWnd) / 96.0f;
 
-    m_pApplication = application;
+    auto& app = GetApp();
 
-    m_IsTearingSupported = m_pApplication->IsTearingSupported();
+    m_IsTearingSupported = app.IsTearingSupported();
+
+    for (int i = 0; i < BufferCount; ++i)
+    {
+        m_BackBufferTextures[i].SetName(L"Backbuffer[" + std::to_wstring(i) + L"]");
+    }
 
     m_dxgiSwapChain = CreateSwapChain();
-    m_d3d12RTVDescriptorHeap = m_pApplication->CreateDescriptorHeap(BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-    m_RTVDescriptorSize = m_pApplication->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
     UpdateRenderTargetViews();
 }
 
@@ -33,11 +38,18 @@ Window::~Window()
     // Window should be destroyed with Application::DestroyWindow before
     // the window goes out of scope.
     assert(!m_hWnd && "Use Application::DestroyWindow before destruction.");
+
+    ::CloseHandle(m_SwapChainEvent);
 }
 
 HWND Window::GetWindowHandle() const
 {
     return m_hWnd;
+}
+
+void Window::Initialize()
+{
+    m_GUI.Initialize(shared_from_this());
 }
 
 const std::wstring& Window::GetWindowName() const
@@ -55,8 +67,15 @@ void Window::Hide()
     ::ShowWindow(m_hWnd, SW_HIDE);
 }
 
+float Window::GetDPIScaling() const
+{
+    return m_DPIScaling;
+}
+
 void Window::Destroy()
 {
+    m_GUI.Destroy();
+
     if (auto pGame = m_pGame.lock())
     {
         // Notify the registered game that the window is being destroyed.
@@ -164,26 +183,29 @@ void Window::RegisterCallbacks(std::shared_ptr<Game> pGame)
     return;
 }
 
-void Window::OnUpdate(UpdateEventArgs&)
+void Window::OnUpdate(UpdateEventArgs& e)
 {
+    // Wait for the swapchain to finish presenting
+    ::WaitForSingleObjectEx(m_SwapChainEvent, 100, TRUE);
+
+    m_GUI.NewFrame();
+
     m_UpdateClock.Tick();
 
     if (auto pGame = m_pGame.lock())
     {
-        m_FrameCounter++;
-
-        UpdateEventArgs updateEventArgs(m_UpdateClock.GetDeltaSeconds(), m_UpdateClock.GetTotalSeconds());
+        UpdateEventArgs updateEventArgs(m_UpdateClock.GetDeltaSeconds(), m_UpdateClock.GetTotalSeconds(), e.FrameNumber);
         pGame->OnUpdate(updateEventArgs);
     }
 }
 
-void Window::OnRender(RenderEventArgs&)
+void Window::OnRender(RenderEventArgs& e)
 {
     m_RenderClock.Tick();
 
     if (auto pGame = m_pGame.lock())
     {
-        RenderEventArgs renderEventArgs(m_RenderClock.GetDeltaSeconds(), m_RenderClock.GetTotalSeconds());
+        RenderEventArgs renderEventArgs(m_RenderClock.GetDeltaSeconds(), m_RenderClock.GetTotalSeconds(), e.FrameNumber);
         pGame->OnRender(renderEventArgs);
     }
 }
@@ -207,6 +229,12 @@ void Window::OnKeyReleased(KeyEventArgs& e)
 // The mouse was moved
 void Window::OnMouseMoved(MouseMotionEventArgs& e)
 {
+    e.RelX = e.X - m_PreviousMouseX;
+    e.RelY = e.Y - m_PreviousMouseY;
+
+    m_PreviousMouseX = e.X;
+    m_PreviousMouseY = e.Y;
+
     if (auto pGame = m_pGame.lock())
     {
         pGame->OnMouseMoved(e);
@@ -216,6 +244,9 @@ void Window::OnMouseMoved(MouseMotionEventArgs& e)
 // A button on the mouse was pressed
 void Window::OnMouseButtonPressed(MouseButtonEventArgs& e)
 {
+    m_PreviousMouseX = e.X;
+    m_PreviousMouseY = e.Y;
+
     if (auto pGame = m_pGame.lock())
     {
         pGame->OnMouseButtonPressed(e);
@@ -248,11 +279,14 @@ void Window::OnResize(ResizeEventArgs& e)
         m_ClientWidth = std::max(1, e.Width);
         m_ClientHeight = std::max(1, e.Height);
 
-        m_pApplication->Flush();
+        GetApp().Flush();
 
+        // Release all references to back buffer textures.
+        m_RenderTarget.AttachTexture(Color0, Texture());
         for (int i = 0; i < BufferCount; ++i)
         {
-            m_d3d12BackBuffers[i].Reset();
+            ResourceStateTracker::RemoveGlobalResourceState(m_BackBufferTextures[i].GetD3D12Resource().Get());
+            m_BackBufferTextures[i].Reset();
         }
 
         DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
@@ -271,8 +305,18 @@ void Window::OnResize(ResizeEventArgs& e)
     }
 }
 
+void Window::OnDPIScaleChanged(DPIScaleEventArgs& e)
+{
+    if (auto pGame = m_pGame.lock())
+    {
+        pGame->OnDPIScaleChanged(e);
+    }
+}
+
 Microsoft::WRL::ComPtr<IDXGISwapChain4> Window::CreateSwapChain()
 {
+    Application& app = GetApp();
+
     ComPtr<IDXGISwapChain4> dxgiSwapChain4;
     ComPtr<IDXGIFactory4> dxgiFactory4;
     UINT createFactoryFlags = 0;
@@ -295,7 +339,8 @@ Microsoft::WRL::ComPtr<IDXGISwapChain4> Window::CreateSwapChain()
     swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
     // It is recommended to always allow tearing if tearing support is available.
     swapChainDesc.Flags = m_IsTearingSupported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
-    ID3D12CommandQueue* pCommandQueue = m_pApplication->GetCommandQueue()->GetD3D12CommandQueue().Get();
+    swapChainDesc.Flags |= DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+    ID3D12CommandQueue* pCommandQueue = app.GetCommandQueue()->GetD3D12CommandQueue().Get();
 
     ComPtr<IDXGISwapChain1> swapChain1;
     ThrowIfFailed(dxgiFactory4->CreateSwapChainForHwnd(
@@ -313,51 +358,77 @@ Microsoft::WRL::ComPtr<IDXGISwapChain4> Window::CreateSwapChain()
     ThrowIfFailed(swapChain1.As(&dxgiSwapChain4));
 
     m_CurrentBackBufferIndex = dxgiSwapChain4->GetCurrentBackBufferIndex();
+    dxgiSwapChain4->SetMaximumFrameLatency(BufferCount - 1);
+    m_SwapChainEvent = dxgiSwapChain4->GetFrameLatencyWaitableObject();
 
     return dxgiSwapChain4;
 }
 
 void Window::UpdateRenderTargetViews()
 {
-    auto device = m_pApplication->GetDevice();
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_d3d12RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-
     for (int i = 0; i < BufferCount; ++i)
     {
         ComPtr<ID3D12Resource> backBuffer;
         ThrowIfFailed(m_dxgiSwapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer)));
 
-        device->CreateRenderTargetView(backBuffer.Get(), nullptr, rtvHandle);
+        ResourceStateTracker::AddGlobalResourceState(backBuffer.Get(), D3D12_RESOURCE_STATE_COMMON);
 
-        m_d3d12BackBuffers[i] = backBuffer;
-
-        rtvHandle.Offset(m_RTVDescriptorSize);
+        m_BackBufferTextures[i].SetD3D12Resource(backBuffer);
+        m_BackBufferTextures[i].CreateViews();
     }
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Window::GetCurrentRenderTargetView() const
+void Window::SetDPIScaling(float dpiScaling)
 {
-    return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_d3d12RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
-        m_CurrentBackBufferIndex, m_RTVDescriptorSize);
+    m_DPIScaling = dpiScaling;
 }
 
-Microsoft::WRL::ComPtr<ID3D12Resource> Window::GetCurrentBackBuffer() const
+const RenderTarget& Window::GetRenderTarget() const
 {
-    return m_d3d12BackBuffers[m_CurrentBackBufferIndex];
+    m_RenderTarget.AttachTexture(AttachmentPoint::Color0, m_BackBufferTextures[m_CurrentBackBufferIndex]);
+    return m_RenderTarget;
 }
 
-UINT Window::GetCurrentBackBufferIndex() const
+UINT Window::Present(const Texture& texture)
 {
-    return m_CurrentBackBufferIndex;
-}
+    auto& app = GetApp();
+    auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    auto commandList = commandQueue->GetCommandList();
 
-UINT Window::Present()
-{
+    auto& backBuffer = m_BackBufferTextures[m_CurrentBackBufferIndex];
+
+    if (texture.IsValid())
+    {
+        if (texture.GetD3D12ResourceDesc().SampleDesc.Count > 1)
+        {
+            commandList->ResolveSubresource(backBuffer, texture);
+        }
+        else
+        {
+            commandList->CopyResource(backBuffer, texture);
+        }
+    }
+
+    RenderTarget renderTarget;
+    renderTarget.AttachTexture(AttachmentPoint::Color0, backBuffer);
+
+    m_GUI.Render(commandList, renderTarget);
+
+    commandList->TransitionBarrier(backBuffer, D3D12_RESOURCE_STATE_PRESENT);
+    commandQueue->ExecuteCommandList(commandList);
+
     UINT syncInterval = m_VSync ? 1 : 0;
     UINT presentFlags = m_IsTearingSupported && !m_VSync ? DXGI_PRESENT_ALLOW_TEARING : 0;
     ThrowIfFailed(m_dxgiSwapChain->Present(syncInterval, presentFlags));
+
+    m_FenceValues[m_CurrentBackBufferIndex] = commandQueue->Signal();
+    m_FrameValues[m_CurrentBackBufferIndex] = app.GetFrameCount();
+
     m_CurrentBackBufferIndex = m_dxgiSwapChain->GetCurrentBackBufferIndex();
+
+    commandQueue->WaitForFenceValue(m_FenceValues[m_CurrentBackBufferIndex]);
+
+    app.ReleaseStaleDescriptors(m_FrameValues[m_CurrentBackBufferIndex]);
 
     return m_CurrentBackBufferIndex;
 }

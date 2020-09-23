@@ -1,24 +1,26 @@
 #pragma once
 
+#include <Camera.h>
 #include <Game.h>
 #include <Window.h>
+#include <Mesh.h>
+#include <Texture.h>
+#include <RenderTarget.h>
+#include <RootSignature.h>
 
 #include <DirectXMath.h>
 
 namespace dx12demo
 {
-    namespace core
-    {
-        class Application;
-    }
-
 	class Lesson1_cube3d : public core::Game
 	{
 	public:
 
         using super = Game;
 
-        Lesson1_cube3d(core::Application* app, const std::wstring& name, int width, int height, bool vSync = false);
+        Lesson1_cube3d(const std::wstring& name, int width, int height, bool vSync = false);
+
+        virtual ~Lesson1_cube3d();
         /**
          *  Load content required for the demo.
          */
@@ -45,66 +47,76 @@ namespace dx12demo
          */
         virtual void OnKeyPressed(core::KeyEventArgs& e) override;
 
+        virtual void OnKeyReleased(core::KeyEventArgs& e) override;
         /**
          * Invoked when the mouse wheel is scrolled while the registered window has focus.
          */
+        virtual void OnMouseMoved(core::MouseMotionEventArgs& e) override;
         virtual void OnMouseWheel(core::MouseWheelEventArgs& e) override;
 
+        virtual void OnDPIScaleChanged(core::DPIScaleEventArgs& e) override;
 
         virtual void OnResize(core::ResizeEventArgs& e) override;
 
+        void RescaleRenderTarget(float scale);
+
+        void OnGUI();
+
     private:
-        // Helper functions
-        // Transition a resource
-        void TransitionResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-            Microsoft::WRL::ComPtr<ID3D12Resource> resource,
-            D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
-
-        // Clear a render target view.
-        void ClearRTV(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-            D3D12_CPU_DESCRIPTOR_HANDLE rtv, FLOAT* clearColor);
-
-        // Clear the depth of a depth-stencil view.
-        void ClearDepth(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-            D3D12_CPU_DESCRIPTOR_HANDLE dsv, FLOAT depth = 1.0f);
-
-        // Create a GPU buffer.
-        void UpdateBufferResource(Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList2> commandList,
-            ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
-            size_t numElements, size_t elementSize, const void* bufferData,
-            D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
-
-        // Resize the depth buffer to match the size of the client area.
-        void ResizeDepthBuffer(int width, int height);
-
-        uint64_t m_FenceValues[core::Window::BufferCount] = {};
-
-        // Vertex buffer for the cube.
-        Microsoft::WRL::ComPtr<ID3D12Resource> m_VertexBuffer;
-        D3D12_VERTEX_BUFFER_VIEW m_VertexBufferView;
-        // Index buffer for the cube.
-        Microsoft::WRL::ComPtr<ID3D12Resource> m_IndexBuffer;
-        D3D12_INDEX_BUFFER_VIEW m_IndexBufferView;
-
-        // Depth buffer.
-        Microsoft::WRL::ComPtr<ID3D12Resource> m_DepthBuffer;
-        // Descriptor heap for depth buffer.
-        Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DSVHeap;
-
-        // Root signature
-        Microsoft::WRL::ComPtr<ID3D12RootSignature> m_RootSignature;
-
-        // Pipeline state object.
-        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
-
-        D3D12_VIEWPORT m_Viewport;
-        D3D12_RECT m_ScissorRect;
-
+        
         float m_FoV;
 
         DirectX::XMMATRIX m_ModelMatrix;
         DirectX::XMMATRIX m_ViewMatrix;
         DirectX::XMMATRIX m_ProjectionMatrix;
+
+        D3D12_RECT m_ScissorRect;
+
+        std::unique_ptr<core::Mesh> m_SphereMesh;
+        std::unique_ptr<core::Mesh> m_SkyboxMesh;
+
+        core::Texture m_GraceCathedralTexture;
+        core::Texture m_GraceCathedralCubemap;
+        core::Texture m_EarthTexture;
+        // HDR Render target
+        core::RenderTarget m_RenderTarget;
+        core::RootSignature m_RootSignature;
+        core::RootSignature m_SkyboxSignature;
+        core::RootSignature m_QuadRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_SkyboxPipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
+
+        int m_Width;
+        int m_Height;
+        float m_RenderScale;
+
+        core::Camera m_Camera;
+        struct alignas(16) CameraData
+        {
+            DirectX::XMVECTOR m_InitialCamPos;
+            DirectX::XMVECTOR m_InitialCamRot;
+            float m_InitialFov;
+        };
+        CameraData* m_pAlignedCameraData;
+
+        // Camera controller
+        float m_Forward;
+        float m_Backward;
+        float m_Left;
+        float m_Right;
+        float m_Up;
+        float m_Down;
+
+        float m_Pitch;
+        float m_Yaw;
+
+        // Rotate the lights in a circle.
+        bool m_AnimateLights;
+        // Set to true if the Shift key is pressed.
+        bool m_Shift;
+
+        double m_FPS = 0.;
 
         bool m_ContentLoaded;
 	};

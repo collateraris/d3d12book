@@ -31,7 +31,7 @@ int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdL
 
     auto& app = dx12demo::core::Application::Create(hInstance);
     {
-        std::shared_ptr<dx12demo::Lesson1_cube3d> demo = std::make_shared<dx12demo::Lesson1_cube3d>(&app, L"Learning DirectX 12 - Lesson 1", 1280, 720);
+        std::shared_ptr<dx12demo::Lesson1_cube3d> demo = std::make_shared<dx12demo::Lesson1_cube3d>(L"Learning DirectX 12 - Lesson 1", 1280, 720);
         retCode = app.Run(demo);
     }
     dx12demo::core::Application::Destroy();

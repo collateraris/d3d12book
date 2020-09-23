@@ -5,13 +5,12 @@
 
 using namespace dx12demo::core;
 
-Game::Game(Application* app, const std::wstring& name, int width, int height, bool vSync)
+Game::Game(const std::wstring& name, int width, int height, bool vSync)
     : m_Name(name)
     , m_Width(width)
     , m_Height(height)
     , m_vSync(vSync)
 {
-    m_pApplication = app;
 }
 
 Game::~Game()
@@ -38,7 +37,7 @@ bool Game::Initialize()
         return false;
     }
 
-    m_pWindow = m_pApplication->CreateRenderWindow(m_Name, m_Width, m_Height, m_vSync);
+    m_pWindow = GetApp().CreateRenderWindow(m_Name, m_Width, m_Height, m_vSync);
     m_pWindow->RegisterCallbacks(shared_from_this());
     m_pWindow->Show();
 
@@ -47,7 +46,7 @@ bool Game::Initialize()
 
 void Game::Destroy()
 {
-    m_pApplication->DestroyWindow(m_pWindow);
+    GetApp().DestroyWindow(m_pWindow);
     m_pWindow.reset();
 }
 
@@ -87,6 +86,11 @@ void Game::OnMouseButtonReleased(MouseButtonEventArgs& e)
 }
 
 void Game::OnMouseWheel(MouseWheelEventArgs& e)
+{
+    // By default, do nothing.
+}
+
+void Game::OnDPIScaleChanged(DPIScaleEventArgs& e)
 {
     // By default, do nothing.
 }

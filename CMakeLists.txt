@@ -10,6 +10,23 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Output directory f
 
 project( LearningDirectX12 LANGUAGES CXX )
 
+# Enable multithreaded builds
+if( MSVC )
+    add_compile_options(/MP)
+endif()
+
+set( ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "Build Assimp Tools" FORCE )
+set( ASSIMP_BUILD_SAMPLES OFF CACHE BOOL "Build Assimp Samples" FORCE )
+set( ASSIMP_BUILD_TESTS OFF CACHE BOOL "Build Assimp Tests" FORCE )
+
+add_subdirectory( assimp )
+
+set_target_properties( assimp IrrXML uninstall UpdateAssimpLibsDebugSymbolsAndDLLs zlib zlibstatic 
+    PROPERTIES
+        FOLDER assimp 
+)
+
+add_subdirectory( DirectXTex )
 add_subdirectory( Core )
 add_subdirectory( Lesson1_cube3D )
 

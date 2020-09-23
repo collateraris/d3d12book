@@ -38,7 +38,7 @@ namespace dx12demo::core
         KeyState        State;  // Was the key pressed or released?
         bool            Control;// Is the Control modifier pressed
         bool            Shift;  // Is the Shift modifier pressed
-        bool            Alt;    // Is the Alt modifier pr
+        bool            Alt;    // Is the Alt modifier pressed
     };
 
     class MouseMotionEventArgs : public EventArgs
@@ -156,26 +156,41 @@ namespace dx12demo::core
     {
     public:
         typedef EventArgs base;
-        UpdateEventArgs(double fDeltaTime, double fTotalTime)
+        UpdateEventArgs(double fDeltaTime, double fTotalTime, uint64_t frameNumber)
             : ElapsedTime(fDeltaTime)
             , TotalTime(fTotalTime)
+            , FrameNumber(frameNumber)
         {}
 
         double ElapsedTime;
         double TotalTime;
+        uint64_t FrameNumber;
     };
 
     class RenderEventArgs : public EventArgs
     {
     public:
         typedef EventArgs base;
-        RenderEventArgs(double fDeltaTime, double fTotalTime)
+        RenderEventArgs(double fDeltaTime, double fTotalTime, uint64_t frameNumber)
             : ElapsedTime(fDeltaTime)
             , TotalTime(fTotalTime)
+            , FrameNumber(frameNumber)
         {}
 
         double ElapsedTime;
         double TotalTime;
+        uint64_t FrameNumber;
+    };
+
+    class DPIScaleEventArgs : public EventArgs
+    {
+    public:
+        typedef EventArgs base;
+        DPIScaleEventArgs(float dpiScale)
+            : DPIScale(dpiScale)
+        {}
+
+        float DPIScale;
     };
 
     class UserEventArgs : public EventArgs
@@ -189,7 +204,7 @@ namespace dx12demo::core
         {}
 
         int     Code;
-        std::any Data1;
-        std::any Data2;
+        void* Data1;
+        void* Data2;
     };
 }
