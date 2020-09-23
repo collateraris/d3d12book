@@ -14,6 +14,8 @@ set( SHADER_FILES
     shaders/PixelShader.hlsl
 	shaders/ScreenQuadVS.hlsl
 	shaders/ScreenQuadPS.hlsl
+	shaders/SkyboxVS.hlsl
+	shaders/SkyboxPS.hlsl
 )
 
 set_source_files_properties( ${SHADER_FILES} 
@@ -46,6 +48,18 @@ set_source_files_properties( shaders/ScreenQuadPS.hlsl
     PROPERTIES 
         VS_SHADER_TYPE Pixel
 		VS_SHADER_VARIABLE_NAME ScreenQuadPS
+)
+
+set_source_files_properties( shaders/SkyboxVS.hlsl
+    PROPERTIES 
+        VS_SHADER_TYPE Vertex
+		VS_SHADER_VARIABLE_NAME SkyboxVS
+)
+
+set_source_files_properties( shaders/SkyboxPS.hlsl
+    PROPERTIES 
+        VS_SHADER_TYPE Pixel
+		VS_SHADER_VARIABLE_NAME SkyboxPS
 )
 
 add_executable( Lesson1_cube3D WIN32

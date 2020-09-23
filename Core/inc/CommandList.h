@@ -141,7 +141,7 @@ namespace dx12demo::core
         void ClearTexture(const Texture& texture, const float clearColor[4]);
         void ClearDepthStencilTexture(const Texture& texture, D3D12_CLEAR_FLAGS clearFlags, float depth = 1.0f, uint8_t stencil = 0);
 
-        //void PanoToCubemap(Texture& cubemap, const Texture& pano);
+        void PanoToCubemap(Texture& cubemap, const Texture& pano);
 
         /**
          * Set a dynamic constant buffer data to an inline descriptor in the root
@@ -361,6 +361,9 @@ namespace dx12demo::core
         static std::mutex ms_TextureCacheMutex;
 
         // Pipeline state object for Mip map generation.
-        std::unique_ptr<GenerateMipsPSO> m_GenerateMipsPSO;  
+        std::unique_ptr<GenerateMipsPSO> m_GenerateMipsPSO;
+
+        // Pipeline state object for converting panorama (equirectangular) to cubemaps
+        std::unique_ptr<PanoToCubemapPSO> m_PanoToCubemapPSO;
     };
 }

@@ -5,6 +5,7 @@ set( HEADER_FILES
     inc/Application.h
     inc/Buffer.h
     inc/ByteAddressBuffer.h
+	inc/Camera.h
     inc/CommandList.h
     inc/CommandQueue.h
     inc/ConstantBuffer.h
@@ -43,6 +44,7 @@ set( SOURCE_FILES
     src/Application.cpp
     src/Buffer.cpp
     src/ByteAddressBuffer.cpp
+	src/Camera.cpp
     src/CommandQueue.cpp
     src/CommandList.cpp
     src/ConstantBuffer.cpp

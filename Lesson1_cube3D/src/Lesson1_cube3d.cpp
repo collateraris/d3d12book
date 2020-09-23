@@ -27,11 +27,38 @@ struct ModelViewProjection
 Lesson1_cube3d::Lesson1_cube3d(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
-    , m_FoV(45.0)
-    , m_ContentLoaded(false)
+    , m_Forward(0)
+    , m_Backward(0)
+    , m_Left(0)
+    , m_Right(0)
+    , m_Up(0)
+    , m_Down(0)
+    , m_Pitch(0)
+    , m_Yaw(0)
+    , m_AnimateLights(false)
+    , m_Shift(false)
     , m_Width(0)
     , m_Height(0)
+    , m_RenderScale(1.0f)
 {
+    XMVECTOR cameraPos = XMVectorSet(0, 5, -20, 1);
+    XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);
+    XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
+
+    m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
+    m_Camera.set_Projection(45.0f, width / (float)height, 0.1f, 100.0f);
+
+    m_pAlignedCameraData = (CameraData*)_aligned_malloc(sizeof(CameraData), 16);
+
+    m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
+    m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
+    m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
+
+}
+
+Lesson1_cube3d::~Lesson1_cube3d()
+{
+    _aligned_free(m_pAlignedCameraData);
 }
 
 bool Lesson1_cube3d::LoadContent()
@@ -43,6 +70,22 @@ bool Lesson1_cube3d::LoadContent()
 
     m_SphereMesh = core::Mesh::CreateSphere(*commandList);
     commandList->LoadTextureFromFile(m_EarthTexture, L"Assets/Textures/earth.dds");
+
+    // Create a cubemap for the HDR panorama.
+    {
+        // Create an inverted (reverse winding order) cube so the insides are not clipped.
+        m_SkyboxMesh = core::Mesh::CreateCube(*commandList, 1.0f, true);
+        commandList->LoadTextureFromFile(m_GraceCathedralTexture, L"Assets/Textures/grace-new.hdr");
+
+        auto cubemapDesc = m_GraceCathedralTexture.GetD3D12ResourceDesc();
+        cubemapDesc.Width = cubemapDesc.Height = 1024;
+        cubemapDesc.DepthOrArraySize = 6;
+        cubemapDesc.MipLevels = 0;
+
+        m_GraceCathedralCubemap = core::Texture(cubemapDesc, nullptr, TextureUsage::Albedo, L"Grace Cathedral Cubemap");
+        // Convert the 2D panorama to a 3D cubemap.
+        commandList->PanoToCubemap(m_GraceCathedralCubemap, m_GraceCathedralTexture);
+    }
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -86,8 +129,63 @@ bool Lesson1_cube3d::LoadContent()
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
-    // Create a root signature for the common pipeline.
+    // Create a root signature and PSO for the skybox shaders.
+    {
+        // Load the Skybox shaders.
+        ComPtr<ID3DBlob> vs;
+        ComPtr<ID3DBlob> ps;
+        ThrowIfFailed(D3DReadFileToBlob(L"SkyboxVS.cso", &vs));
+        ThrowIfFailed(D3DReadFileToBlob(L"SkyboxPS.cso", &ps));
 
+        // Setup the input layout for the skybox vertex shader.
+        D3D12_INPUT_ELEMENT_DESC inputLayout[1] = {
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        };
+
+        // Allow input layout and deny unnecessary access to certain pipeline stages.
+        D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+        CD3DX12_DESCRIPTOR_RANGE1 descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+        rootParameters[0].InitAsConstants(sizeof(DirectX::XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+        rootParameters[1].InitAsDescriptorTable(1, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+        CD3DX12_STATIC_SAMPLER_DESC linearClampSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
+        rootSignatureDescription.Init_1_1(2, rootParameters, 1, &linearClampSampler, rootSignatureFlags);
+
+        m_SkyboxSignature.SetRootSignatureDesc(rootSignatureDescription.Desc_1_1, featureData.HighestVersion);
+
+        // Setup the Skybox pipeline state.
+        struct SkyboxPipelineState
+        {
+            CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+            CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+            CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+            CD3DX12_PIPELINE_STATE_STREAM_VS VS;
+            CD3DX12_PIPELINE_STATE_STREAM_PS PS;
+            CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+        } skyboxPipelineStateStream;
+
+        skyboxPipelineStateStream.pRootSignature = m_SkyboxSignature.GetRootSignature().Get();
+        skyboxPipelineStateStream.InputLayout = { inputLayout, 1 };
+        skyboxPipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        skyboxPipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
+        skyboxPipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());
+        skyboxPipelineStateStream.RTVFormats = m_RenderTarget.GetRenderTargetFormats();
+
+        D3D12_PIPELINE_STATE_STREAM_DESC skyboxPipelineStateStreamDesc = {
+            sizeof(SkyboxPipelineState), &skyboxPipelineStateStream
+        };
+        ThrowIfFailed(device->CreatePipelineState(&skyboxPipelineStateStreamDesc, IID_PPV_ARGS(&m_SkyboxPipelineState)));
+    }
+
+    // Create a root signature for the common pipeline.
     {
         // Load the  shaders.
         ComPtr<ID3DBlob> vs;
@@ -206,6 +304,12 @@ void Lesson1_cube3d::OnResize(core::ResizeEventArgs& e)
     {
         m_Width = std::max(1, e.Width);
         m_Height = std::max(1, e.Height);
+
+        float fov = m_Camera.get_FoV();
+        float aspectRatio = m_Width / (float)m_Height;
+        m_Camera.set_Projection(fov, aspectRatio, 0.1f, 100.0f);
+
+        RescaleRenderTarget(m_RenderScale);
     }
 }
 
@@ -230,21 +334,42 @@ void Lesson1_cube3d::OnUpdate(core::UpdateEventArgs& e)
         frameCount = 0;
         totalTime = 0.0;
     }
+    {
+        // Update the camera.
+        float speedMultipler = (m_Shift ? 16.0f : 4.0f);
 
-    // Update the model matrix.
-    float angle = static_cast<float>(e.TotalTime * 90.0);
-    const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
-    m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
+        XMVECTOR cameraTranslate = XMVectorSet(m_Right - m_Left, 0.0f, m_Forward - m_Backward, 1.0f) * speedMultipler * static_cast<float>(e.ElapsedTime);
+        XMVECTOR cameraPan = XMVectorSet(0.0f, m_Up - m_Down, 0.0f, 1.0f) * speedMultipler * static_cast<float>(e.ElapsedTime);
+        m_Camera.Translate(cameraTranslate, core::ESpace::Local);
+        m_Camera.Translate(cameraPan, core::ESpace::Local);
 
-    // Update the view matrix.
-    const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
-    const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
-    const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 0);
-    m_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+        XMVECTOR cameraRotation = XMQuaternionRotationRollPitchYaw(XMConvertToRadians(m_Pitch), XMConvertToRadians(m_Yaw), 0.0f);
+        m_Camera.set_Rotation(cameraRotation);
+    }
 
-    // Update the projection matrix.
-    float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
-    m_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(m_FoV), aspectRatio, 0.1f, 100.0f);
+    {
+        // Update the model matrix.
+        float angle = static_cast<float>(e.TotalTime * 90.0);
+        const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
+        m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
+
+        m_ViewMatrix = m_Camera.get_ViewMatrix();
+
+        // Update the projection matrix.
+        float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
+        m_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(m_Camera.get_FoV()), aspectRatio, 0.1f, 100.0f);
+    }
+}
+
+void Lesson1_cube3d::RescaleRenderTarget(float scale)
+{
+    uint32_t width = static_cast<uint32_t>(m_Width * scale);
+    uint32_t height = static_cast<uint32_t>(m_Height * scale);
+
+    width = std::clamp<uint32_t>(width, 1, D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION);
+    height = std::clamp<uint32_t>(height, 1, D3D12_REQ_TEXTURE2D_U_OR_V_DIMENSION);
+
+    m_RenderTarget.Resize(width, height);
 }
 
 void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
@@ -265,6 +390,29 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
     commandList->SetRenderTarget(m_RenderTarget);
     commandList->SetViewport(m_RenderTarget.GetViewport());
     commandList->SetScissorRect(m_ScissorRect);
+
+    // Render the skybox.
+    {
+        // The view matrix should only consider the camera's rotation, but not the translation.
+        auto viewMatrix = XMMatrixTranspose(XMMatrixRotationQuaternion(m_Camera.get_Rotation()));
+        auto& projMatrix = m_Camera.get_ProjectionMatrix();
+        auto viewProjMatrix = viewMatrix * projMatrix;
+
+        commandList->SetPipelineState(m_SkyboxPipelineState);
+        commandList->SetGraphicsRootSignature(m_SkyboxSignature);
+
+        commandList->SetGraphics32BitConstants(0, viewProjMatrix);
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Format = m_GraceCathedralCubemap.GetD3D12ResourceDesc().Format;
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+        srvDesc.TextureCube.MipLevels = (UINT)-1; // Use all mips.
+
+        commandList->SetShaderResourceView(1, 0, m_GraceCathedralCubemap, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, &srvDesc);
+
+        m_SkyboxMesh->Render(*commandList);
+    }
 
     commandList->SetPipelineState(m_PipelineState);
     commandList->SetGraphicsRootSignature(m_RootSignature);
@@ -293,7 +441,6 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
 
 void Lesson1_cube3d::OnKeyPressed(core::KeyEventArgs& e)
 {
-
     super::OnKeyPressed(e);
 
     switch (e.Key)
@@ -311,16 +458,106 @@ void Lesson1_cube3d::OnKeyPressed(core::KeyEventArgs& e)
     case KeyCode::V:
         m_pWindow->ToggleVSync();
         break;
+    case KeyCode::R:
+        // Reset camera transform
+        m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
+        m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
+        m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
+        m_Pitch = 0.0f;
+        m_Yaw = 0.0f;
+        break;
+    case KeyCode::Up:
+    case KeyCode::W:
+        m_Forward = 1.0f;
+        break;
+    case KeyCode::Left:
+    case KeyCode::A:
+        m_Left = 1.0f;
+        break;
+    case KeyCode::Down:
+    case KeyCode::S:
+        m_Backward = 1.0f;
+        break;
+    case KeyCode::Right:
+    case KeyCode::D:
+        m_Right = 1.0f;
+        break;
+    case KeyCode::Q:
+        m_Down = 1.0f;
+        break;
+    case KeyCode::E:
+        m_Up = 1.0f;
+        break;
+    case KeyCode::Space:
+        m_AnimateLights = !m_AnimateLights;
+        break;
+    case KeyCode::ShiftKey:
+        m_Shift = true;
+        break;
+    }
+}
+
+void Lesson1_cube3d::OnKeyReleased(core::KeyEventArgs& e)
+{
+    super::OnKeyReleased(e);
+
+    switch (e.Key)
+    {
+    case KeyCode::Up:
+    case KeyCode::W:
+        m_Forward = 0.0f;
+        break;
+    case KeyCode::Left:
+    case KeyCode::A:
+        m_Left = 0.0f;
+        break;
+    case KeyCode::Down:
+    case KeyCode::S:
+        m_Backward = 0.0f;
+        break;
+    case KeyCode::Right:
+    case KeyCode::D:
+        m_Right = 0.0f;
+        break;
+    case KeyCode::Q:
+        m_Down = 0.0f;
+        break;
+    case KeyCode::E:
+        m_Up = 0.0f;
+        break;
+    case KeyCode::ShiftKey:
+        m_Shift = false;
+        break;
+    }  
+}
+
+void Lesson1_cube3d::OnMouseMoved(core::MouseMotionEventArgs& e)
+{
+    super::OnMouseMoved(e);
+
+    const float mouseSpeed = 0.1f;
+
+    if (e.LeftButton)
+    {
+        m_Pitch -= e.RelY * mouseSpeed;
+
+        m_Pitch = std::clamp(m_Pitch, -90.0f, 90.0f);
+
+        m_Yaw -= e.RelX * mouseSpeed;
     }
 }
 
 void Lesson1_cube3d::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
-    m_FoV -= e.WheelDelta;
-    m_FoV = std::clamp(m_FoV, 12.0f, 90.0f);
+    auto fov = m_Camera.get_FoV();
+
+    fov -= e.WheelDelta;
+    fov = std::clamp(fov, 12.0f, 90.0f);
+
+    m_Camera.set_FoV(fov);
 
     char buffer[256];
-    sprintf_s(buffer, "FoV: %f\n", m_FoV);
+    sprintf_s(buffer, "FoV: %f\n", fov);
     OutputDebugStringA(buffer);
 }
 
