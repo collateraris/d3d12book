@@ -49,7 +49,7 @@ HWND Window::GetWindowHandle() const
 
 void Window::Initialize()
 {
-
+    m_GUI.Initialize(shared_from_this());
 }
 
 const std::wstring& Window::GetWindowName() const
@@ -74,6 +74,8 @@ float Window::GetDPIScaling() const
 
 void Window::Destroy()
 {
+    m_GUI.Destroy();
+
     if (auto pGame = m_pGame.lock())
     {
         // Notify the registered game that the window is being destroyed.
@@ -185,6 +187,8 @@ void Window::OnUpdate(UpdateEventArgs& e)
 {
     // Wait for the swapchain to finish presenting
     ::WaitForSingleObjectEx(m_SwapChainEvent, 100, TRUE);
+
+    m_GUI.NewFrame();
 
     m_UpdateClock.Tick();
 
@@ -407,6 +411,8 @@ UINT Window::Present(const Texture& texture)
 
     RenderTarget renderTarget;
     renderTarget.AttachTexture(AttachmentPoint::Color0, backBuffer);
+
+    m_GUI.Render(commandList, renderTarget);
 
     commandList->TransitionBarrier(backBuffer, D3D12_RESOURCE_STATE_PRESENT);
     commandQueue->ExecuteCommandList(commandList);

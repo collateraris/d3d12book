@@ -60,6 +60,8 @@ namespace dx12demo
 
         void RescaleRenderTarget(float scale);
 
+        void OnGUI();
+
     private:
         
         float m_FoV;
@@ -113,6 +115,8 @@ namespace dx12demo
         bool m_AnimateLights;
         // Set to true if the Shift key is pressed.
         bool m_Shift;
+
+        double m_FPS = 0.;
 
         bool m_ContentLoaded;
 	};

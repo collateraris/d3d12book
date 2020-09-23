@@ -24,6 +24,20 @@ struct ModelViewProjection
     XMMATRIX MVP;
 };
 
+static void ShowHelpMarker(const char* desc)
+{
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
+
 Lesson1_cube3d::Lesson1_cube3d(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
@@ -325,10 +339,10 @@ void Lesson1_cube3d::OnUpdate(core::UpdateEventArgs& e)
 
     if (totalTime > 1.0)
     {
-        double fps = frameCount / totalTime;
+        m_FPS = frameCount / totalTime;
 
         char buffer[512];
-        sprintf_s(buffer, "FPS: %f\n", fps);
+        sprintf_s(buffer, "FPS: %f\n", m_FPS);
         OutputDebugStringA(buffer);
 
         frameCount = 0;
@@ -436,99 +450,102 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
 
     commandQueue->ExecuteCommandList(commandList);
 
+    OnGUI();
+
     m_pWindow->Present();
 }
 
 void Lesson1_cube3d::OnKeyPressed(core::KeyEventArgs& e)
 {
     super::OnKeyPressed(e);
-
-    switch (e.Key)
-    {
-    case KeyCode::Escape:
-        GetApp().Quit(0);
-        break;
-    case KeyCode::Enter:
-        if (e.Alt)
+    if (!ImGui::GetIO().WantCaptureKeyboard)
+        switch (e.Key)
         {
-    case KeyCode::F11:
-        m_pWindow->ToggleFullscreen();
-        break;
+        case KeyCode::Escape:
+            GetApp().Quit(0);
+            break;
+        case KeyCode::Enter:
+            if (e.Alt)
+            {
+        case KeyCode::F11:
+            m_pWindow->ToggleFullscreen();
+            break;
+            }
+        case KeyCode::V:
+            m_pWindow->ToggleVSync();
+            break;
+        case KeyCode::R:
+            // Reset camera transform
+            m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
+            m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
+            m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
+            m_Pitch = 0.0f;
+            m_Yaw = 0.0f;
+            break;
+        case KeyCode::Up:
+        case KeyCode::W:
+            m_Forward = 1.0f;
+            break;
+        case KeyCode::Left:
+        case KeyCode::A:
+            m_Left = 1.0f;
+            break;
+        case KeyCode::Down:
+        case KeyCode::S:
+            m_Backward = 1.0f;
+            break;
+        case KeyCode::Right:
+        case KeyCode::D:
+            m_Right = 1.0f;
+            break;
+        case KeyCode::Q:
+            m_Down = 1.0f;
+            break;
+        case KeyCode::E:
+            m_Up = 1.0f;
+            break;
+        case KeyCode::Space:
+            m_AnimateLights = !m_AnimateLights;
+            break;
+        case KeyCode::ShiftKey:
+            m_Shift = true;
+            break;
         }
-    case KeyCode::V:
-        m_pWindow->ToggleVSync();
-        break;
-    case KeyCode::R:
-        // Reset camera transform
-        m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
-        m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
-        m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
-        m_Pitch = 0.0f;
-        m_Yaw = 0.0f;
-        break;
-    case KeyCode::Up:
-    case KeyCode::W:
-        m_Forward = 1.0f;
-        break;
-    case KeyCode::Left:
-    case KeyCode::A:
-        m_Left = 1.0f;
-        break;
-    case KeyCode::Down:
-    case KeyCode::S:
-        m_Backward = 1.0f;
-        break;
-    case KeyCode::Right:
-    case KeyCode::D:
-        m_Right = 1.0f;
-        break;
-    case KeyCode::Q:
-        m_Down = 1.0f;
-        break;
-    case KeyCode::E:
-        m_Up = 1.0f;
-        break;
-    case KeyCode::Space:
-        m_AnimateLights = !m_AnimateLights;
-        break;
-    case KeyCode::ShiftKey:
-        m_Shift = true;
-        break;
-    }
 }
 
 void Lesson1_cube3d::OnKeyReleased(core::KeyEventArgs& e)
 {
     super::OnKeyReleased(e);
 
-    switch (e.Key)
-    {
-    case KeyCode::Up:
-    case KeyCode::W:
-        m_Forward = 0.0f;
-        break;
-    case KeyCode::Left:
-    case KeyCode::A:
-        m_Left = 0.0f;
-        break;
-    case KeyCode::Down:
-    case KeyCode::S:
-        m_Backward = 0.0f;
-        break;
-    case KeyCode::Right:
-    case KeyCode::D:
-        m_Right = 0.0f;
-        break;
-    case KeyCode::Q:
-        m_Down = 0.0f;
-        break;
-    case KeyCode::E:
-        m_Up = 0.0f;
-        break;
-    case KeyCode::ShiftKey:
-        m_Shift = false;
-        break;
-    }  
+    if (!ImGui::GetIO().WantCaptureKeyboard)
+        switch (e.Key)
+        {
+        case KeyCode::Up:
+        case KeyCode::W:
+            m_Forward = 0.0f;
+            break;
+        case KeyCode::Left:
+        case KeyCode::A:
+            m_Left = 0.0f;
+            break;
+        case KeyCode::Down:
+        case KeyCode::S:
+            m_Backward = 0.0f;
+            break;
+        case KeyCode::Right:
+        case KeyCode::D:
+            m_Right = 0.0f;
+            break;
+        case KeyCode::Q:
+            m_Down = 0.0f;
+            break;
+        case KeyCode::E:
+            m_Up = 0.0f;
+            break;
+        case KeyCode::ShiftKey:
+            m_Shift = false;
+            break;
+        }  
 }
 
 void Lesson1_cube3d::OnMouseMoved(core::MouseMotionEventArgs& e)
@@ -537,32 +554,93 @@ void Lesson1_cube3d::OnMouseMoved(core::MouseMotionEventArgs& e)
 
     const float mouseSpeed = 0.1f;
 
-    if (e.LeftButton)
-    {
-        m_Pitch -= e.RelY * mouseSpeed;
+    if (!ImGui::GetIO().WantCaptureMouse)
+        if (e.LeftButton)
+        {
+            m_Pitch -= e.RelY * mouseSpeed;
 
-        m_Pitch = std::clamp(m_Pitch, -90.0f, 90.0f);
+            m_Pitch = std::clamp(m_Pitch, -90.0f, 90.0f);
 
-        m_Yaw -= e.RelX * mouseSpeed;
-    }
+            m_Yaw -= e.RelX * mouseSpeed;
+        }
 }
 
 void Lesson1_cube3d::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
-    auto fov = m_Camera.get_FoV();
+    if (!ImGui::GetIO().WantCaptureMouse)
+    {
+        auto fov = m_Camera.get_FoV();
 
-    fov -= e.WheelDelta;
-    fov = std::clamp(fov, 12.0f, 90.0f);
+        fov -= e.WheelDelta;
+        fov = std::clamp(fov, 12.0f, 90.0f);
 
-    m_Camera.set_FoV(fov);
+        m_Camera.set_FoV(fov);
 
-    char buffer[256];
-    sprintf_s(buffer, "FoV: %f\n", fov);
-    OutputDebugStringA(buffer);
+        char buffer[256];
+        sprintf_s(buffer, "FoV: %f\n", fov);
+        OutputDebugStringA(buffer);
+    }
 }
 
 void Lesson1_cube3d::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
 {
+    ImGui::GetIO().FontGlobalScale = e.DPIScale;
+}
 
+void Lesson1_cube3d::OnGUI()
+{
+    static bool showDemoWindow = false;
+
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("Exit", "Esc"))
+            {
+                GetApp().Quit();
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("View"))
+        {
+            ImGui::MenuItem("ImGui Demo", nullptr, &showDemoWindow);
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Options"))
+        {
+            bool vSync = m_pWindow->IsVSync();
+            if (ImGui::MenuItem("V-Sync", "V", &vSync))
+            {
+                m_pWindow->SetVSync(vSync);
+            }
+
+            bool fullscreen = m_pWindow->IsFullScreen();
+            if (ImGui::MenuItem("Full screen", "Alt+Enter", &fullscreen))
+            {
+                m_pWindow->SetFullscreen(fullscreen);
+            }
+
+            ImGui::EndMenu();
+        }
+
+        char buffer[256];
+
+        {
+            sprintf_s(buffer, _countof(buffer), "FPS: %.2f (%.2f ms)  ", m_FPS, 1.0 / (m_FPS * 1000.0 + 0.001));
+            auto fpsTextSize = ImGui::CalcTextSize(buffer);
+            ImGui::SameLine(ImGui::GetWindowWidth() - fpsTextSize.x);
+            ImGui::Text(buffer);
+        }
+
+        ImGui::EndMainMenuBar();
+    }
+
+    if (showDemoWindow)
+    {
+        ImGui::ShowDemoWindow(&showDemoWindow);
+    }
 }
 

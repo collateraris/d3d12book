@@ -11,6 +11,7 @@
 #include <memory>
 
 #include <Events.h>
+#include <GUI.h>
 #include <HighResolutionClock.h>
 #include <Application.h>
 #include <RenderTarget.h>
@@ -151,5 +152,7 @@ namespace dx12demo::core
 
 		// Per-window DPI scaling.
 		float m_DPIScaling;
+
+		GUI m_GUI;
 	};
 }

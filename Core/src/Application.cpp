@@ -11,6 +11,7 @@
 using namespace dx12demo::core;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 constexpr wchar_t WINDOW_CLASS_NAME[] = L"DX12RenderWindowClass";
 
@@ -302,6 +303,7 @@ std::shared_ptr<Window> Application::CreateRenderWindow(const std::wstring& wind
     }
 
     pWindow = std::make_shared<MakeWindow>(hWnd, windowName, clientWidth, clientHeight, vSync);
+    pWindow->Initialize();
 
     m_Windows.insert(WindowMap::value_type(hWnd, pWindow));
     m_WindowByName.insert(WindowNameMap::value_type(windowName, pWindow));
@@ -485,6 +487,11 @@ MouseButtonEventArgs::MouseButton DecodeMouseButton(UINT messageID)
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGui_ImplWin32_WndProcHandler(hwnd, message, wParam, lParam))
+    {
+        return true;
+    }
+
     std::shared_ptr<Window> pWindow;
     gs_pSingelton->GetWindowByhWnd(hwnd, pWindow);
 
@@ -492,6 +499,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         switch (message)
         {
+        case WM_DPICHANGED:
+        {
+            float dpiScaling = HIWORD(wParam) / 96.0f;
+            DPIScaleEventArgs dpiScaleEventArgs(dpiScaling);
+            pWindow->OnDPIScaleChanged(dpiScaleEventArgs);
+        }
+        break;
         case WM_PAINT:
         {
             gs_pSingelton->IncFrameCount();
@@ -512,10 +526,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             // For printable characters, the next message will be WM_CHAR.
             // This message contains the character code we need to send the KeyPressed event.
             // Inspired by the SDL 1.2 implementation.
-            if (PeekMessage(&charMsg, hwnd, 0, 0, PM_NOREMOVE) && charMsg.message == WM_CHAR)
+            if (PeekMessageW(&charMsg, hwnd, 0, 0, PM_NOREMOVE) && charMsg.message == WM_CHAR)
             {
                 GetMessage(&charMsg, hwnd, 0, 0);
                 c = static_cast<unsigned int>(charMsg.wParam);
+
+                if (charMsg.wParam > 0 && charMsg.wParam < 0x10000)
+                    ImGui::GetIO().AddInputCharacter((unsigned short)charMsg.wParam);
             }
             bool shift = (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
             bool control = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
