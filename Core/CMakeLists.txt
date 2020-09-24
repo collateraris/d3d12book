@@ -21,6 +21,7 @@ set( HEADER_FILES
     inc/HighResolutionClock.h
     inc/IndexBuffer.h
     inc/KeyCodes.h
+	inc/Material.h
     inc/Mesh.h
     inc/PanoToCubemapPSO.h
     inc/RenderTarget.h
@@ -57,12 +58,14 @@ set( SOURCE_FILES
     src/GUI.cpp
     src/HighResolutionClock.cpp
     src/IndexBuffer.cpp
+	src/Material.cpp
     src/Mesh.cpp
     src/PanoToCubemapPSO.cpp
     src/RenderTarget.cpp
     src/Resource.cpp
     src/ResourceStateTracker.cpp
     src/RootSignature.cpp
+	src/Scene.cpp
     src/SceneNode.cpp
     src/StructuredBuffer.cpp
     src/Texture.cpp
@@ -115,7 +118,8 @@ target_include_directories( Core
 )
 
 target_link_libraries( Core
-	PUBLIC DirectXTex 
+	PUBLIC DirectXTex
+    PUBLIC assimp	
     PUBLIC d3d12.lib
     PUBLIC dxgi.lib
     PUBLIC dxguid.lib

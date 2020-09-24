@@ -6,11 +6,20 @@ using namespace dx12demo::core;
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-const D3D12_INPUT_ELEMENT_DESC VertexPositionNormalTexture::InputElements[] =
+const D3D12_INPUT_ELEMENT_DESC PosNormTexTangBitangVertex::InputElements[] =
+{
+    { "POSITION",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    { "NORMAL",     0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    { "TEXCOORD",   0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+};
+
+const D3D12_INPUT_ELEMENT_DESC PosNormTexTangBitangVertex::InputElementsExtended[] =
 {
     { "POSITION",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     { "NORMAL",     0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     { "TEXCOORD",   0, DXGI_FORMAT_R32G32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    { "TANGENT",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    { "BITANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 };
 
 Mesh::Mesh()
@@ -35,6 +44,16 @@ void Mesh::Render(CommandList& commandList, uint32_t instanceCount, uint32_t fir
     {
         commandList.Draw(m_VertexBuffer.GetNumVertices(), instanceCount, 0, firstInstance);
     }
+}
+
+std::unique_ptr<Mesh> Mesh::CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, bool rhcoords/* = false*/)
+{
+    // Create the customs object.
+    std::unique_ptr<Mesh> mesh(new Mesh());
+
+    mesh->Initialize(commandList, vertices, indices, rhcoords);
+
+    return mesh;
 }
 
 std::unique_ptr<Mesh> Mesh::CreateSphere(CommandList& commandList, float diameter, size_t tessellation, bool rhcoords)
@@ -75,7 +94,7 @@ std::unique_ptr<Mesh> Mesh::CreateSphere(CommandList& commandList, float diamete
             XMVECTOR normal = XMVectorSet(dx, dy, dz, 0);
             XMVECTOR textureCoordinate = XMVectorSet(u, v, 0, 0);
 
-            vertices.push_back(VertexPositionNormalTexture(normal * radius, normal, textureCoordinate));
+            vertices.push_back(PosNormTexTangBitangVertex(normal * radius, normal, textureCoordinate));
         }
     }
 
@@ -157,10 +176,10 @@ std::unique_ptr<Mesh> Mesh::CreateCube(CommandList& commandList, float size, boo
         indices.push_back(static_cast<uint16_t>(vbase + 3));
 
         // Four vertices per face.
-        vertices.push_back(VertexPositionNormalTexture((normal - side1 - side2) * size, normal, textureCoordinates[0]));
-        vertices.push_back(VertexPositionNormalTexture((normal - side1 + side2) * size, normal, textureCoordinates[1]));
-        vertices.push_back(VertexPositionNormalTexture((normal + side1 + side2) * size, normal, textureCoordinates[2]));
-        vertices.push_back(VertexPositionNormalTexture((normal + side1 - side2) * size, normal, textureCoordinates[3]));
+        vertices.push_back(PosNormTexTangBitangVertex((normal - side1 - side2) * size, normal, textureCoordinates[0]));
+        vertices.push_back(PosNormTexTangBitangVertex((normal - side1 + side2) * size, normal, textureCoordinates[1]));
+        vertices.push_back(PosNormTexTangBitangVertex((normal + side1 + side2) * size, normal, textureCoordinates[2]));
+        vertices.push_back(PosNormTexTangBitangVertex((normal + side1 - side2) * size, normal, textureCoordinates[3]));
     }
 
     // Create the primitive object.
@@ -233,7 +252,7 @@ static void CreateCylinderCap(VertexCollection& vertices, IndexCollection& indic
 
         XMVECTOR textureCoordinate = XMVectorMultiplyAdd(XMVectorSwizzle<0, 2, 3, 3>(circleVector), textureScale, g_XMOneHalf);
 
-        vertices.push_back(VertexPositionNormalTexture(position, normal, textureCoordinate));
+        vertices.push_back(PosNormTexTangBitangVertex(position, normal, textureCoordinate));
     }
 }
 
@@ -269,8 +288,8 @@ std::unique_ptr<Mesh> Mesh::CreateCone(CommandList& commandList, float diameter,
         normal = XMVector3Normalize(normal);
 
         // Duplicate the top vertex for distinct normals
-        vertices.push_back(VertexPositionNormalTexture(topOffset, normal, g_XMZero));
-        vertices.push_back(VertexPositionNormalTexture(pt, normal, textureCoordinate + g_XMIdentityR1));
+        vertices.push_back(PosNormTexTangBitangVertex(topOffset, normal, g_XMZero));
+        vertices.push_back(PosNormTexTangBitangVertex(pt, normal, textureCoordinate + g_XMIdentityR1));
 
         indices.push_back(static_cast<uint16_t>(i * 2));
         indices.push_back(static_cast<uint16_t>((i * 2 + 3) % (stride * 2)));
@@ -327,7 +346,7 @@ std::unique_ptr<Mesh> Mesh::CreateTorus(CommandList& commandList, float diameter
             position = XMVector3Transform(position, transform);
             normal = XMVector3TransformNormal(normal, transform);
 
-            vertices.push_back(VertexPositionNormalTexture(position, normal, textureCoordinate));
+            vertices.push_back(PosNormTexTangBitangVertex(position, normal, textureCoordinate));
 
             // And create indices for two triangles.
             size_t nextI = (i + 1) % stride;
@@ -385,7 +404,7 @@ static void ReverseWinding(IndexCollection& indices, VertexCollection& vertices)
 
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
-        it->textureCoordinate.x = (1.f - it->textureCoordinate.x);
+        it->m_texCoord.x = (1.f - it->m_texCoord.x);
     }
 }
 

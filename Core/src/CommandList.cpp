@@ -17,6 +17,8 @@
 #include <Texture.h>
 #include <UploadBuffer.h>
 #include <VertexBuffer.h>
+#include <Scene.h>
+#include <SceneNode.h>
 
 using namespace dx12demo::core;
 
@@ -477,6 +479,11 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         // Add the texture resource to the texture cache.
         CommandList::ms_TextureCache[fileName] = textureResource.Get();
     }
+}
+
+void CommandList::LoadSceneFromFile(Scene& scene, const std::wstring& filname)
+{
+
 }
 
 void CommandList::CopyTextureSubresource(Texture& texture, uint32_t firstSubresource, uint32_t numSubresources, D3D12_SUBRESOURCE_DATA* subresourceData)

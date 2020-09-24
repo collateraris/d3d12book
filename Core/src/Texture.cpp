@@ -68,6 +68,11 @@ const TextureUsage& Texture::GetTextureUsage() const
     return m_TextureUsage;
 }
 
+bool Texture::IsEmpty() const
+{
+    return m_TextureUsage == TextureUsage::None;
+}
+
 void Texture::SetTextureUsage(const TextureUsage& textureUsage)
 {
     m_TextureUsage = textureUsage;
