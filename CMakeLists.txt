@@ -8,6 +8,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) # Output directory f
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Output directory for shared lib (.DLL)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Output directory for executables (.EXE)
 
+file(COPY Assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Debug/)
+file(COPY Assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Release/)
+
 project( LearningDirectX12 LANGUAGES CXX )
 
 # Enable multithreaded builds
@@ -29,8 +32,9 @@ set_target_properties( assimp IrrXML uninstall UpdateAssimpLibsDebugSymbolsAndDL
 add_subdirectory( DirectXTex )
 add_subdirectory( Core )
 add_subdirectory( Lesson1_cube3D )
+add_subdirectory( Lesson2_forward_shading )
 
 # Set the startup project.
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT Lesson1_cube3D
+    VS_STARTUP_PROJECT Lesson2_forward_shading
 )

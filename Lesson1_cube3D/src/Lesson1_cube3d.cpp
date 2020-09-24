@@ -14,7 +14,7 @@ using namespace DirectX;
 // to use these as root indices in the root signature.
 enum RootParameters
 {
-    MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
+    MatricesCB1,         // ConstantBuffer<Mat> MatCB : register(b0);
     Textures,           // Texture2D DiffuseTexture : register( t2 );
     NumRootParameters
 };
@@ -217,7 +217,7 @@ bool Lesson1_cube3d::LoadContent()
         CD3DX12_DESCRIPTOR_RANGE1 descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
 
         CD3DX12_ROOT_PARAMETER1 rootParameters[RootParameters::NumRootParameters];
-        rootParameters[RootParameters::MatricesCB].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
+        rootParameters[RootParameters::MatricesCB1].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
         rootParameters[RootParameters::Textures].InitAsDescriptorTable(1, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
         CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
@@ -239,7 +239,7 @@ bool Lesson1_cube3d::LoadContent()
         } pipelineStateStream;
 
         pipelineStateStream.pRootSignature = m_RootSignature.GetRootSignature().Get();
-        pipelineStateStream.InputLayout = { core::VertexPositionNormalTexture::InputElements, core::VertexPositionNormalTexture::InputElementCount };
+        pipelineStateStream.InputLayout = { core::PosNormTexTangBitangVertex::InputElements, core::PosNormTexTangBitangVertex::InputElementCount };
         pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
         pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());
@@ -434,7 +434,7 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
     XMMATRIX mvpMatrix = XMMatrixMultiply(m_ModelMatrix, m_ViewMatrix);
     mvpMatrix = XMMatrixMultiply(mvpMatrix, m_ProjectionMatrix);
     ModelViewProjection MVP = {mvpMatrix};
-    commandList->SetGraphicsDynamicConstantBuffer(RootParameters::MatricesCB, MVP);
+    commandList->SetGraphicsDynamicConstantBuffer(RootParameters::MatricesCB1, MVP);
     commandList->SetShaderResourceView(RootParameters::Textures, 0, m_EarthTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     m_SphereMesh->Render(*commandList);

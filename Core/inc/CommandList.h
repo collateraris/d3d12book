@@ -136,7 +136,7 @@ namespace dx12demo::core
 
         void LoadTextureFromFile(Texture& texture, const std::wstring& fileName, TextureUsage textureUsage = TextureUsage::Albedo);
 
-        //void LoadSceneFromFile(Scene& scene, const std::wstring& filname);
+        void LoadSceneFromFile(Scene& scene, const std::wstring& filname);
 
         void ClearTexture(const Texture& texture, const float clearColor[4]);
         void ClearDepthStencilTexture(const Texture& texture, D3D12_CLEAR_FLAGS clearFlags, float depth = 1.0f, uint8_t stencil = 0);

@@ -15,33 +15,51 @@
 namespace dx12demo::core
 {
 	// Vertex struct holding position, normal vector, and texture mapping information.
-	struct VertexPositionNormalTexture
+	struct PosNormTexTangBitangVertex
 	{
-        VertexPositionNormalTexture()
+        PosNormTexTangBitangVertex()
         { }
 
-        VertexPositionNormalTexture(const DirectX::XMFLOAT3& position, const DirectX::XMFLOAT3& normal, const DirectX::XMFLOAT2& textureCoordinate)
-            : position(position),
-            normal(normal),
-            textureCoordinate(textureCoordinate)
+        PosNormTexTangBitangVertex(const DirectX::XMFLOAT3& position,
+            const DirectX::XMFLOAT3& normal, 
+            const DirectX::XMFLOAT2& textureCoordinate,
+            const DirectX::XMFLOAT3& tangent = { 0.f, 0.f, 0.f },
+            const DirectX::XMFLOAT3& bitangent = { 0.f, 0.f, 0.f })
+            : m_position(position),
+            m_normal(normal),
+            m_texCoord(textureCoordinate),
+            m_tangent(tangent),
+            m_bitangent(bitangent)
+
         { }
 
-        VertexPositionNormalTexture(DirectX::FXMVECTOR position, DirectX::FXMVECTOR normal, DirectX::FXMVECTOR textureCoordinate)
+        PosNormTexTangBitangVertex(const DirectX::FXMVECTOR& position,
+            const DirectX::FXMVECTOR& normal,
+            const DirectX::FXMVECTOR& textureCoordinate,
+            const DirectX::FXMVECTOR& tangent = { 0.f, 0.f, 0.f },
+            const DirectX::FXMVECTOR& bitangent = { 0.f, 0.f, 0.f })
         {
-            XMStoreFloat3(&this->position, position);
-            XMStoreFloat3(&this->normal, normal);
-            XMStoreFloat2(&this->textureCoordinate, textureCoordinate);
+            XMStoreFloat3(&this->m_position, position);
+            XMStoreFloat3(&this->m_normal, normal);
+            XMStoreFloat2(&this->m_texCoord, textureCoordinate);
+            XMStoreFloat3(&this->m_tangent, tangent);
+            XMStoreFloat3(&this->m_bitangent, bitangent);
         }
 
-        DirectX::XMFLOAT3 position;
-        DirectX::XMFLOAT3 normal;
-        DirectX::XMFLOAT2 textureCoordinate;
+        DirectX::XMFLOAT3 m_position;
+        DirectX::XMFLOAT3 m_normal;
+        DirectX::XMFLOAT2 m_texCoord;
+        DirectX::XMFLOAT3 m_tangent;
+        DirectX::XMFLOAT3 m_bitangent;
 
         static const int InputElementCount = 3;
         static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+
+        static const int InputElementCountExtended = 5;
+        static const D3D12_INPUT_ELEMENT_DESC InputElementsExtended[InputElementCountExtended];
 	};
 
-    using VertexCollection = std::vector<VertexPositionNormalTexture>;
+    using VertexCollection = std::vector<PosNormTexTangBitangVertex>;
     using IndexCollection = std::vector<uint16_t>;
 
     class Mesh
@@ -50,6 +68,7 @@ namespace dx12demo::core
 
         void Render(CommandList& commandList, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
 
+        static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateCube(CommandList& commandList, float size = 1, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateSphere(CommandList& commandList, float diameter = 1, size_t tessellation = 16, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateCone(CommandList& commandList, float diameter = 1, float height = 1, size_t tessellation = 32, bool rhcoords = false);
