@@ -3,6 +3,7 @@
 enum class TextureUsage
 {
     None,
+    Ambient,
     Albedo,
     Diffuse = Albedo,       // Treat Diffuse and Albedo textures the same.
     Heightmap,
