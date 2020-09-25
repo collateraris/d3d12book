@@ -8,6 +8,7 @@
 #include <RenderTarget.h>
 #include <RootSignature.h>
 #include <Scene.h>
+#include <Light.h>
 
 #include <DirectXMath.h>
 
@@ -73,22 +74,18 @@ namespace dx12demo
 
         D3D12_RECT m_ScissorRect;
 
-        std::unique_ptr<core::Mesh> m_SphereMesh;
         std::unique_ptr<core::Mesh> m_SkyboxMesh;
 
         core::Texture m_GraceCathedralTexture;
         core::Texture m_GraceCathedralCubemap;
-        core::Texture m_EarthTexture;
 
         core::Scene m_Scene;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
-        core::RootSignature m_RootSignature;
         core::RootSignature m_SceneRootSignature;
         core::RootSignature m_SkyboxSignature;
         core::RootSignature m_QuadRootSignature;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_SkyboxPipelineState;
-        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
@@ -121,8 +118,13 @@ namespace dx12demo
         // Set to true if the Shift key is pressed.
         bool m_Shift;
 
+        const float m_CameraStep = 0.5f;
+
         double m_FPS = 0.;
 
         bool m_ContentLoaded;
+
+        std::vector<core::PointLight> m_PointLights;
+        std::vector<core::SpotLight> m_SpotLights;
 	};
 }
