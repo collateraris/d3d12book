@@ -21,6 +21,7 @@ set( HEADER_FILES
     inc/HighResolutionClock.h
     inc/IndexBuffer.h
     inc/KeyCodes.h
+	inc/Light.h
 	inc/Material.h
     inc/Mesh.h
     inc/PanoToCubemapPSO.h

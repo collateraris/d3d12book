@@ -10,17 +10,17 @@
 using namespace dx12demo;
 using namespace DirectX;
 
-enum class RootParameters
-{
-    MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
-    Textures,           // Texture2D DiffuseTexture : register( t2 );
-    NumRootParameters
-};
 
 enum class SceneRootParameters
 {
     MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
-    DiffuseTex,         // Texture2D DiffuseTexture : register( t0 );
+    LightPropertiesCB,  // ConstantBuffer<LightProperties> LightPropertiesCB : register( b1 );
+    PointLights,        // StructuredBuffer<PointLight> PointLights : register( t0 );
+    SpotLights,         // StructuredBuffer<SpotLight> SpotLights : register( t1 );
+    AmbientTex,         // Texture2D AmbientTexture : register( t2 );
+    DiffuseTex,         // Texture2D DiffuseTexture : register( t3 );
+    SpecularTex,        // Texture2D SpecularTexture : register( t4 );
+    NormalTex,          // Texture2D SpecularTexture : register( t5 );
     NumRootParameters
 };
 
@@ -32,6 +32,12 @@ struct Mat
     XMMATRIX ModelViewProjectionMatrix;
 };
 
+struct LightProperties
+{
+    uint32_t NumPointLights;
+    uint32_t NumSpotLights;
+};
+
 void XM_CALLCONV ComputeMatrices(const XMMATRIX& model, const CXMMATRIX& view, const CXMMATRIX& projection, Mat& mat)
 {
     mat.ModelMatrix = model;
@@ -40,10 +46,6 @@ void XM_CALLCONV ComputeMatrices(const XMMATRIX& model, const CXMMATRIX& view, c
     mat.ModelViewProjectionMatrix = mat.ModelViewMatrix * projection;
 }
 
-struct ModelViewProjection
-{
-    XMMATRIX MVP;
-};
 
 static void ShowHelpMarker(const char* desc)
 {
@@ -83,6 +85,9 @@ Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int w
     m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
     m_Camera.set_Projection(45.0f, width / (float)height, 0.1f, 100.0f);
 
+    m_ViewMatrix = m_Camera.get_ViewMatrix();
+    m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+
     m_pAlignedCameraData = (CameraData*)_aligned_malloc(sizeof(CameraData), 16);
 
     m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
@@ -103,10 +108,9 @@ bool Lesson2_forward_shading::LoadContent()
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
 
-    m_Scene.LoadFromFile(commandList, L"Assets/models/nanosuit/nanosuit.obj", true);
+    m_Scene.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
+    //m_Scene.LoadFromFile(commandList, L"Assets/models/nanosuit/nanosuit.obj", true);
 
-    m_SphereMesh = core::Mesh::CreateSphere(*commandList);
-    commandList->LoadTextureFromFile(m_EarthTexture, L"Assets/Textures/earth.dds");
 
     // Create a cubemap for the HDR panorama.
     {
@@ -222,61 +226,6 @@ bool Lesson2_forward_shading::LoadContent()
         ThrowIfFailed(device->CreatePipelineState(&skyboxPipelineStateStreamDesc, IID_PPV_ARGS(&m_SkyboxPipelineState)));
     }
 
-    // Create a root signature for the common pipeline.
-    {
-        // Load the  shaders.
-        ComPtr<ID3DBlob> vs;
-        ComPtr<ID3DBlob> ps;
-        ThrowIfFailed(D3DReadFileToBlob(L"VertexShader.cso", &vs));
-        ThrowIfFailed(D3DReadFileToBlob(L"PixelShader.cso", &ps));
-
-        // Allow input layout and deny unnecessary access to certain pipeline stages.
-        D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
-
-        CD3DX12_DESCRIPTOR_RANGE1 descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
-
-        CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(RootParameters::NumRootParameters)];
-        rootParameters[static_cast<int>(RootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
-        rootParameters[static_cast<int>(RootParameters::Textures)].InitAsDescriptorTable(1, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
-
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-        rootSignatureDescription.Init_1_1(static_cast<size_t>(RootParameters::NumRootParameters), rootParameters, 1, &linearRepeatSampler, rootSignatureFlags);
-
-        m_RootSignature.SetRootSignatureDesc(rootSignatureDescription.Desc_1_1, featureData.HighestVersion);
-
-        struct PipelineStateStream
-        {
-            CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-            CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
-            CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
-            CD3DX12_PIPELINE_STATE_STREAM_VS VS;
-            CD3DX12_PIPELINE_STATE_STREAM_PS PS;
-            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
-            CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL DepthStencilState;
-        } pipelineStateStream;
-
-        pipelineStateStream.pRootSignature = m_RootSignature.GetRootSignature().Get();
-        pipelineStateStream.InputLayout = { core::PosNormTexTangBitangVertex::InputElements, core::PosNormTexTangBitangVertex::InputElementCount };
-        pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
-        pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());
-        pipelineStateStream.DSVFormat = m_RenderTarget.GetDepthStencilFormat();
-        pipelineStateStream.RTVFormats = m_RenderTarget.GetRenderTargetFormats();
-        pipelineStateStream.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-
-        D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
-            sizeof(PipelineStateStream), &pipelineStateStream
-        };
-        ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&m_PipelineState)));
-    }
-
     // Create a root signature for the forward shading (scene) pipeline.
     {
         // Load the  shaders.
@@ -295,8 +244,22 @@ bool Lesson2_forward_shading::LoadContent()
 
         CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(SceneRootParameters::NumRootParameters)];
         rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
-                CD3DX12_DESCRIPTOR_RANGE1 diffuseTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        
+        rootParameters[static_cast<int>(SceneRootParameters::LightPropertiesCB)].InitAsConstants(sizeof(LightProperties) / 4, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[static_cast<int>(SceneRootParameters::PointLights)].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[static_cast<int>(SceneRootParameters::SpotLights)].InitAsShaderResourceView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+
+        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
+        rootParameters[static_cast<int>(SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+        CD3DX12_DESCRIPTOR_RANGE1 diffuseTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
         rootParameters[static_cast<int>(SceneRootParameters::DiffuseTex)].InitAsDescriptorTable(1, &diffuseTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+        CD3DX12_DESCRIPTOR_RANGE1 specularTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
+        rootParameters[static_cast<int>(SceneRootParameters::SpecularTex)].InitAsDescriptorTable(1, &specularTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+        CD3DX12_DESCRIPTOR_RANGE1 normalTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 5);
+        rootParameters[static_cast<int>(SceneRootParameters::NormalTex)].InitAsDescriptorTable(1, &normalTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
         CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
 
@@ -445,6 +408,73 @@ void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
     }
 
     {
+        const int numPointLights = 4;
+        const int numSpotLights = 4;
+
+        static const XMVECTORF32 LightColors[] =
+        {
+            Colors::White, Colors::Orange, Colors::Yellow, Colors::Green, Colors::Blue, Colors::Indigo, Colors::Violet, Colors::White
+        };
+
+        static float lightAnimTime = 0.0f;
+        if (m_AnimateLights)
+        {
+            lightAnimTime += static_cast<float>(e.ElapsedTime) * 0.5f * XM_PI;
+        }
+
+        const float radius = 8.0f;
+        const float offset = 2.0f * XM_PI / numPointLights;
+        const float offset2 = offset + (offset / 2.0f);
+
+        // Setup the light buffers.
+        m_PointLights.resize(numPointLights);
+        for (int i = 0; i < numPointLights; ++i)
+        {
+            core::PointLight& l = m_PointLights[i];
+
+            l.PositionWS = {
+                static_cast<float>(std::sin(lightAnimTime + offset * i)) * radius,
+                9.0f,
+                static_cast<float>(std::cos(lightAnimTime + offset * i)) * radius,
+                1.0f
+            };
+            XMVECTOR positionWS = XMLoadFloat4(&l.PositionWS);
+            XMVECTOR positionVS = XMVector3TransformCoord(positionWS, m_ViewMatrix);
+            XMStoreFloat4(&l.PositionVS, positionVS);
+
+            l.Color = XMFLOAT4(LightColors[i]);
+            l.Intensity = 0.5f;
+            l.Attenuation = 1.0f;
+        }
+
+        m_SpotLights.resize(numSpotLights);
+        for (int i = 0; i < numSpotLights; ++i)
+        {
+            core::SpotLight& l = m_SpotLights[i];
+
+            l.PositionWS = {
+                static_cast<float>(std::sin(lightAnimTime + offset * i + offset2)) * radius,
+                9.0f,
+                static_cast<float>(std::cos(lightAnimTime + offset * i + offset2)) * radius,
+                1.0f
+            };
+            XMVECTOR positionWS = XMLoadFloat4(&l.PositionWS);
+            XMVECTOR positionVS = XMVector3TransformCoord(positionWS, m_ViewMatrix);
+            XMStoreFloat4(&l.PositionVS, positionVS);
+
+            XMVECTOR directionWS = XMVector3Normalize(XMVectorSetW(XMVectorNegate(positionWS), 0));
+            XMVECTOR directionVS = XMVector3Normalize(XMVector3TransformNormal(directionWS, m_ViewMatrix));
+            XMStoreFloat4(&l.DirectionWS, directionWS);
+            XMStoreFloat4(&l.DirectionVS, directionVS);
+
+            l.Color = XMFLOAT4(LightColors[numPointLights + i]);
+            l.Intensity = 0.5f;
+            l.SpotAngle = XMConvertToRadians(45.0f);
+            l.Attenuation = 1.0f;
+        }
+    }
+
+    {
         // Update the model matrix.
         float angle = static_cast<float>(e.TotalTime * 90.0);
         const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
@@ -510,14 +540,22 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
         m_SkyboxMesh->Render(*commandList);
     }
 
+    commandList->SetPipelineState(m_ScenePipelineState);
+    commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
     {
-        commandList->SetPipelineState(m_ScenePipelineState);
-        commandList->SetGraphicsRootSignature(m_SceneRootSignature);
+        // Upload lights
+        LightProperties lightProps;
+        lightProps.NumPointLights = static_cast<uint32_t>(m_PointLights.size());
+        lightProps.NumSpotLights = static_cast<uint32_t>(m_SpotLights.size());
+
+        commandList->SetGraphics32BitConstants(static_cast<int>(SceneRootParameters::LightPropertiesCB), lightProps);
+        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(SceneRootParameters::PointLights), m_PointLights);
+        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(SceneRootParameters::SpotLights), m_SpotLights);
 
         Mat matrices;
-        auto model = XMMatrixIdentity();
-        //auto model = XMMatrixScaling();
+        //auto model = XMMatrixIdentity();
+        auto model = XMMatrixScaling(0.002f, 0.002f, 0.002f);
         
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
@@ -525,23 +563,21 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
         
         std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
         {
+            if (!material->GetAmbientTex().IsEmpty())
+                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+       
             if (!material->GetDiffuseTex().IsEmpty())
                 commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::DiffuseTex), 0, material->GetDiffuseTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+            if (!material->GetSpecularTex().IsEmpty())
+                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::SpecularTex), 0, material->GetSpecularTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+            if (!material->GetNormalTex().IsEmpty())
+                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::NormalTex), 0, material->GetNormalTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         };
 
         m_Scene.Render(commandList, materialDrawFun);
     }
-
-    commandList->SetPipelineState(m_PipelineState);
-    commandList->SetGraphicsRootSignature(m_RootSignature);
-
-    XMMATRIX mvpMatrix = XMMatrixMultiply(m_ModelMatrix, m_ViewMatrix);
-    mvpMatrix = XMMatrixMultiply(mvpMatrix, m_ProjectionMatrix);
-    ModelViewProjection MVP = {mvpMatrix};
-    commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(RootParameters::MatricesCB), MVP);
-    commandList->SetShaderResourceView(static_cast<int>(RootParameters::Textures), 0, m_EarthTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-    m_SphereMesh->Render(*commandList);
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
@@ -588,25 +624,25 @@ void Lesson2_forward_shading::OnKeyPressed(core::KeyEventArgs& e)
             break;
         case KeyCode::Up:
         case KeyCode::W:
-            m_Forward = 1.0f;
+            m_Forward = m_CameraStep;
             break;
         case KeyCode::Left:
         case KeyCode::A:
-            m_Left = 1.0f;
+            m_Left = m_CameraStep;
             break;
         case KeyCode::Down:
         case KeyCode::S:
-            m_Backward = 1.0f;
+            m_Backward = m_CameraStep;
             break;
         case KeyCode::Right:
         case KeyCode::D:
-            m_Right = 1.0f;
+            m_Right = m_CameraStep;
             break;
         case KeyCode::Q:
-            m_Down = 1.0f;
+            m_Down = m_CameraStep;
             break;
         case KeyCode::E:
-            m_Up = 1.0f;
+            m_Up = m_CameraStep;
             break;
         case KeyCode::Space:
             m_AnimateLights = !m_AnimateLights;

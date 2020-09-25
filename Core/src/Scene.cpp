@@ -158,7 +158,7 @@ void Scene::ProcessMeshLoadMaterialTextures(std::shared_ptr<CommandList>& comman
             inStoreMat->LoadNormalTex(commandList, path);
             break;
         case aiTextureType_AMBIENT:
-            inStoreMat->LoadDiffuseTex(commandList, path);
+            inStoreMat->LoadAmbientTex(commandList, path);
             break;
         default:
             continue;

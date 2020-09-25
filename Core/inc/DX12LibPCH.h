@@ -28,6 +28,7 @@ using namespace Microsoft::WRL;
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <DirectXTex.h>
+#include <DirectXColors.h>
 
 using namespace DirectX;
 
