@@ -12,7 +12,7 @@
 
 using namespace dx12demo::core;
 
-using VertexCollection = std::vector<PosNormTexTangBitangVertex>;
+using VertexCollection = std::vector<PosNormTexVertex>;
 using IndexCollection = std::vector<uint16_t>;
 
 Scene::Scene()
@@ -66,7 +66,7 @@ void Scene::ProcessNode(std::shared_ptr<CommandList>& commandList, aiNode* node,
 
 void Scene::ProcessMesh(std::shared_ptr<CommandList>& commandList, aiMesh* mesh, const aiScene* scene)
 {
-    static VertexCollection vertices;
+    static VertexExtendedCollection vertices;
     static IndexCollection indices;
 
     vertices.clear();
@@ -105,7 +105,7 @@ void Scene::ProcessMesh(std::shared_ptr<CommandList>& commandList, aiMesh* mesh,
             textureCoordinate = {0., 0.};
         }
   
-        vertices.emplace_back(PosNormTexTangBitangVertex(position, normal, textureCoordinate, tangent, bitangent));
+        vertices.emplace_back(PosNormTexExtendedVertex(position, normal, textureCoordinate, tangent, bitangent));
     }
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++)

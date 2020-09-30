@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.18.2 ) # Latest version of CMake when this file was created.
+cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this file was created.
 
 set( HEADER_FILES 
     inc/DX12LibPCH.h
@@ -13,7 +13,9 @@ set( HEADER_FILES
     inc/DescriptorAllocator.h
     inc/DescriptorAllocatorPage.h
     inc/DynamicDescriptorHeap.h
+	inc/Frustum.h
     inc/Events.h
+	inc/QuadTree.h
     inc/Game.h
     inc/GenerateMipsPSO.h
     inc/GUI.h
@@ -32,6 +34,7 @@ set( HEADER_FILES
     inc/Scene.h
     inc/SceneNode.h
     inc/StructuredBuffer.h
+	inc/Terrain.h
     inc/Texture.h
     inc/TextureUsage.h
     inc/ThreadSafeQueue.h
@@ -54,6 +57,8 @@ set( SOURCE_FILES
     src/DescriptorAllocator.cpp
     src/DescriptorAllocatorPage.cpp
     src/DynamicDescriptorHeap.cpp
+	src/Frustum.cpp
+	src/QuadTree.cpp
     src/Game.cpp
     src/GenerateMipsPSO.cpp
     src/GUI.cpp
@@ -69,6 +74,7 @@ set( SOURCE_FILES
 	src/Scene.cpp
     src/SceneNode.cpp
     src/StructuredBuffer.cpp
+	src/Terrain.cpp
     src/Texture.cpp
     src/UploadBuffer.cpp
 	src/URootObject.cpp
@@ -106,9 +112,9 @@ add_library( Core STATIC
     ${IMGUI_HEADERS} ${IMGUI_SOURCE}	
 )
 
-# Enable C++17 compiler features.
+# Enable C++20 compiler features.
 target_compile_features( Core 
-	PUBLIC cxx_std_17
+	PUBLIC cxx_std_20
 )
 
 source_group( "shaders" FILES ${SHADER_FILES} )

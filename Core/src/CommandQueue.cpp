@@ -190,17 +190,18 @@ void CommandQueue::ProccessInFlightCommandLists()
         lock.lock();
 
         CommandListEntry commandListEntry;
-        m_InFlightCommandLists.WaitAndPop(commandListEntry);
-      
-        auto fenceValue = std::get<0>(commandListEntry);
-        auto commandList = std::get<1>(commandListEntry);
+        while (m_InFlightCommandLists.TryPop(commandListEntry))
+        {
+            auto fenceValue = std::get<0>(commandListEntry);
+            auto commandList = std::get<1>(commandListEntry);
 
-        WaitForFenceValue(fenceValue);
+            WaitForFenceValue(fenceValue);
 
-        commandList->Reset();
+            commandList->Reset();
 
-        m_AvailableCommandLists.Push(commandList);
-      
+            m_AvailableCommandLists.Push(commandList);
+        }
+        
         lock.unlock();
         m_ProcessInFlightCommandListsThreadCV.notify_one();
 

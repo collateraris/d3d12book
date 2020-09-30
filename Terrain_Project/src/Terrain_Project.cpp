@@ -1,4 +1,4 @@
-#include <Lesson2_forward_shading.h>
+#include <Terrain_Project.h>
 
 #include <Application.h>
 #include <CommandQueue.h>
@@ -10,19 +10,14 @@
 using namespace dx12demo;
 using namespace DirectX;
 
-
 enum class SceneRootParameters
 {
     MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
-    LightPropertiesCB,  // ConstantBuffer<LightProperties> LightPropertiesCB : register( b1 );
-    PointLights,        // StructuredBuffer<PointLight> PointLights : register( t0 );
-    SpotLights,         // StructuredBuffer<SpotLight> SpotLights : register( t1 );
-    AmbientTex,         // Texture2D AmbientTexture : register( t2 );
-    DiffuseTex,         // Texture2D DiffuseTexture : register( t3 );
-    SpecularTex,        // Texture2D SpecularTexture : register( t4 );
-    NormalTex,          // Texture2D SpecularTexture : register( t5 );
+    DirLight,           // StructuredBuffer<PointLight> PointLights : register( b1 );
+    AmbientTex,         // Texture2D AmbientTexture : register( t0 );
     NumRootParameters
 };
+
 
 struct Mat
 {
@@ -61,7 +56,7 @@ static void ShowHelpMarker(const char* desc)
 }
 
 
-Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int width, int height, bool vSync)
+Terrain_Project::Terrain_Project(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
     , m_Forward(0)
@@ -78,7 +73,7 @@ Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int w
     , m_Height(0)
     , m_RenderScale(1.0f)
 {
-    XMVECTOR cameraPos = XMVectorSet(0, 5, -20, 1);
+    XMVECTOR cameraPos = XMVectorSet(50, 2, -7, 1);
     XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
@@ -94,23 +89,26 @@ Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int w
     m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
 
+    m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
+    m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    m_DirLight.lightDirection = { -0.5f, -1.0f, 0.0f };
 }
 
-Lesson2_forward_shading::~Lesson2_forward_shading()
+Terrain_Project::~Terrain_Project()
 {
     _aligned_free(m_pAlignedCameraData);
 }
 
-bool Lesson2_forward_shading::LoadContent()
+bool Terrain_Project::LoadContent()
 {
     auto& app = GetApp();
     auto& device = app.GetDevice();
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
 
-    m_Scene.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
-    //m_Scene.LoadFromFile(commandList, L"Assets/models/nanosuit/nanosuit.obj", true);
-
+    core::TerrainInfo terraInfo;
+    terraInfo.heightMapPath = "Assets/Textures/heightmap01.bmp";
+    m_Scene.Generate(*commandList, terraInfo);
 
     // Create a cubemap for the HDR panorama.
     {
@@ -228,6 +226,8 @@ bool Lesson2_forward_shading::LoadContent()
 
     // Create a root signature for the forward shading (scene) pipeline.
     {
+        commandList->LoadTextureFromFile(m_TerrainTexture, L"Assets/Textures/terrain1.dds");
+
         // Load the  shaders.
         ComPtr<ID3DBlob> vs;
         ComPtr<ID3DBlob> ps;
@@ -241,25 +241,11 @@ bool Lesson2_forward_shading::LoadContent()
             D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
             D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-
         CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(SceneRootParameters::NumRootParameters)];
-        rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
-        
-        rootParameters[static_cast<int>(SceneRootParameters::LightPropertiesCB)].InitAsConstants(sizeof(LightProperties) / 4, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
-        rootParameters[static_cast<int>(SceneRootParameters::PointLights)].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-        rootParameters[static_cast<int>(SceneRootParameters::SpotLights)].InitAsShaderResourceView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
+        rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);      
+        rootParameters[static_cast<int>(SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[static_cast<int>(SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 diffuseTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-        rootParameters[static_cast<int>(SceneRootParameters::DiffuseTex)].InitAsDescriptorTable(1, &diffuseTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 specularTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
-        rootParameters[static_cast<int>(SceneRootParameters::SpecularTex)].InitAsDescriptorTable(1, &specularTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 normalTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 5);
-        rootParameters[static_cast<int>(SceneRootParameters::NormalTex)].InitAsDescriptorTable(1, &normalTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
         CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
 
@@ -347,13 +333,13 @@ bool Lesson2_forward_shading::LoadContent()
     return true;
 }
 
-void Lesson2_forward_shading::UnloadContent()
+void Terrain_Project::UnloadContent()
 {
     m_ContentLoaded = false;
 }
 
 
-void Lesson2_forward_shading::OnResize(core::ResizeEventArgs& e)
+void Terrain_Project::OnResize(core::ResizeEventArgs& e)
 {
     super::OnResize(e);
 
@@ -370,7 +356,7 @@ void Lesson2_forward_shading::OnResize(core::ResizeEventArgs& e)
     }
 }
 
-void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
+void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
 {
     static uint64_t frameCount = 0;
     static double totalTime = 0.0;
@@ -408,73 +394,6 @@ void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
     }
 
     {
-        const int numPointLights = 4;
-        const int numSpotLights = 4;
-
-        static const XMVECTORF32 LightColors[] =
-        {
-            Colors::White, Colors::Orange, Colors::Yellow, Colors::Green, Colors::Blue, Colors::Indigo, Colors::Violet, Colors::White
-        };
-
-        static float lightAnimTime = 0.0f;
-        if (m_AnimateLights)
-        {
-            lightAnimTime += static_cast<float>(e.ElapsedTime) * 0.5f * XM_PI;
-        }
-
-        const float radius = 8.0f;
-        const float offset = 2.0f * XM_PI / numPointLights;
-        const float offset2 = offset + (offset / 2.0f);
-
-        // Setup the light buffers.
-        m_PointLights.resize(numPointLights);
-        for (int i = 0; i < numPointLights; ++i)
-        {
-            core::PointLight& l = m_PointLights[i];
-
-            l.PositionWS = {
-                static_cast<float>(std::sin(lightAnimTime + offset * i)) * radius,
-                9.0f,
-                static_cast<float>(std::cos(lightAnimTime + offset * i)) * radius,
-                1.0f
-            };
-            XMVECTOR positionWS = XMLoadFloat4(&l.PositionWS);
-            XMVECTOR positionVS = XMVector3TransformCoord(positionWS, m_ViewMatrix);
-            XMStoreFloat4(&l.PositionVS, positionVS);
-
-            l.Color = XMFLOAT4(LightColors[i]);
-            l.Intensity = 0.5f;
-            l.Attenuation = 1.0f;
-        }
-
-        m_SpotLights.resize(numSpotLights);
-        for (int i = 0; i < numSpotLights; ++i)
-        {
-            core::SpotLight& l = m_SpotLights[i];
-
-            l.PositionWS = {
-                static_cast<float>(std::sin(lightAnimTime + offset * i + offset2)) * radius,
-                9.0f,
-                static_cast<float>(std::cos(lightAnimTime + offset * i + offset2)) * radius,
-                1.0f
-            };
-            XMVECTOR positionWS = XMLoadFloat4(&l.PositionWS);
-            XMVECTOR positionVS = XMVector3TransformCoord(positionWS, m_ViewMatrix);
-            XMStoreFloat4(&l.PositionVS, positionVS);
-
-            XMVECTOR directionWS = XMVector3Normalize(XMVectorSetW(XMVectorNegate(positionWS), 0));
-            XMVECTOR directionVS = XMVector3Normalize(XMVector3TransformNormal(directionWS, m_ViewMatrix));
-            XMStoreFloat4(&l.DirectionWS, directionWS);
-            XMStoreFloat4(&l.DirectionVS, directionVS);
-
-            l.Color = XMFLOAT4(LightColors[numPointLights + i]);
-            l.Intensity = 0.5f;
-            l.SpotAngle = XMConvertToRadians(45.0f);
-            l.Attenuation = 1.0f;
-        }
-    }
-
-    {
         // Update the model matrix.
         float angle = static_cast<float>(e.TotalTime * 90.0);
         const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
@@ -487,7 +406,7 @@ void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
     }
 }
 
-void Lesson2_forward_shading::RescaleRenderTarget(float scale)
+void Terrain_Project::RescaleRenderTarget(float scale)
 {
     uint32_t width = static_cast<uint32_t>(m_Width * scale);
     uint32_t height = static_cast<uint32_t>(m_Height * scale);
@@ -498,7 +417,7 @@ void Lesson2_forward_shading::RescaleRenderTarget(float scale)
     m_RenderTarget.Resize(width, height);
 }
 
-void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
+void Terrain_Project::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
@@ -544,39 +463,16 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
     {
-        // Upload lights
-        LightProperties lightProps;
-        lightProps.NumPointLights = static_cast<uint32_t>(m_PointLights.size());
-        lightProps.NumSpotLights = static_cast<uint32_t>(m_SpotLights.size());
-
-        commandList->SetGraphics32BitConstants(static_cast<int>(SceneRootParameters::LightPropertiesCB), lightProps);
-        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(SceneRootParameters::PointLights), m_PointLights);
-        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(SceneRootParameters::SpotLights), m_SpotLights);
 
         Mat matrices;
-        //auto model = XMMatrixIdentity();
-        auto model = XMMatrixScaling(0.002f, 0.002f, 0.002f);
-        
+        auto model = XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
+        commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
-        std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
-        {
-            if (!material->GetAmbientTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-       
-            if (!material->GetDiffuseTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::DiffuseTex), 0, material->GetDiffuseTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-            if (!material->GetSpecularTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::SpecularTex), 0, material->GetSpecularTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-            if (!material->GetNormalTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::NormalTex), 0, material->GetNormalTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        };
-
-        m_Scene.Render(commandList, materialDrawFun);
+        m_Scene.Render(*commandList);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -595,7 +491,7 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
     m_pWindow->Present();
 }
 
-void Lesson2_forward_shading::OnKeyPressed(core::KeyEventArgs& e)
+void Terrain_Project::OnKeyPressed(core::KeyEventArgs& e)
 {
     super::OnKeyPressed(e);
     if (!ImGui::GetIO().WantCaptureKeyboard)
@@ -653,7 +549,7 @@ void Lesson2_forward_shading::OnKeyPressed(core::KeyEventArgs& e)
         }
 }
 
-void Lesson2_forward_shading::OnKeyReleased(core::KeyEventArgs& e)
+void Terrain_Project::OnKeyReleased(core::KeyEventArgs& e)
 {
     super::OnKeyReleased(e);
 
@@ -688,7 +584,7 @@ void Lesson2_forward_shading::OnKeyReleased(core::KeyEventArgs& e)
         }  
 }
 
-void Lesson2_forward_shading::OnMouseMoved(core::MouseMotionEventArgs& e)
+void Terrain_Project::OnMouseMoved(core::MouseMotionEventArgs& e)
 {
     super::OnMouseMoved(e);
 
@@ -705,7 +601,7 @@ void Lesson2_forward_shading::OnMouseMoved(core::MouseMotionEventArgs& e)
         }
 }
 
-void Lesson2_forward_shading::OnMouseWheel(core::MouseWheelEventArgs& e)
+void Terrain_Project::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
@@ -722,12 +618,12 @@ void Lesson2_forward_shading::OnMouseWheel(core::MouseWheelEventArgs& e)
     }
 }
 
-void Lesson2_forward_shading::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
+void Terrain_Project::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
 {
     ImGui::GetIO().FontGlobalScale = e.DPIScale;
 }
 
-void Lesson2_forward_shading::OnGUI()
+void Terrain_Project::OnGUI()
 {
     static bool showDemoWindow = false;
 
