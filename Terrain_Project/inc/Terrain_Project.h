@@ -10,6 +10,8 @@
 #include <Scene.h>
 #include <Terrain.h>
 
+#include <EnvironmentMapRenderPass.h>
+
 #include <DirectXMath.h>
 
 namespace dx12demo
@@ -73,6 +75,8 @@ namespace dx12demo
 
     private:
         
+        core::EnvironmentMapRenderPass m_envRenderPass;
+
         float m_FoV;
 
         DirectX::XMMATRIX m_ModelMatrix;
@@ -81,20 +85,14 @@ namespace dx12demo
 
         D3D12_RECT m_ScissorRect;
 
-        std::unique_ptr<core::Mesh> m_SkyboxMesh;
-
         core::Texture m_TerrainTexture;
-        core::Texture m_GraceCathedralTexture;
-        core::Texture m_GraceCathedralCubemap;
 
         core::Terrain m_Scene;
         LightBuffer m_DirLight;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
         core::RootSignature m_SceneRootSignature;
-        core::RootSignature m_SkyboxSignature;
         core::RootSignature m_QuadRootSignature;
-        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_SkyboxPipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
