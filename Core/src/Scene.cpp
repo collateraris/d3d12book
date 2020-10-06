@@ -5,6 +5,8 @@
 #include <CommandList.h>
 #include <Material.h>
 #include <Mesh.h>
+#include <BoundingVolumesPrimitive.h>
+#include <Frustum.h>
 
 #include <DirectXMath.h>
 
@@ -12,7 +14,7 @@
 
 using namespace dx12demo::core;
 
-using VertexCollection = std::vector<PosNormTexTangBitangVertex>;
+using VertexCollection = std::vector<PosNormTexVertex>;
 using IndexCollection = std::vector<uint16_t>;
 
 Scene::Scene()
@@ -25,7 +27,7 @@ Scene::~Scene()
 
 }
 
-bool Scene::LoadFromFile(std::shared_ptr<CommandList>& commandList, const std::wstring& fileName, bool rhcoords/* = false*/)
+bool Scene::LoadFromFile(std::shared_ptr<CommandList>& commandList, const std::wstring& fileName, bool rhcoords/* = false*/, float scale/* = 1*/)
 {
     fs::path filePath(fileName);
     if (!fs::exists(filePath))
@@ -45,6 +47,7 @@ bool Scene::LoadFromFile(std::shared_ptr<CommandList>& commandList, const std::w
 
     m_lastDirectory = path.substr(0, path.find_last_of('/'));
     m_last_rhcoords = rhcoords;
+    m_last_scale = scale;
 
     ProcessNode(commandList, scene->mRootNode, scene);
     return true;
@@ -66,11 +69,13 @@ void Scene::ProcessNode(std::shared_ptr<CommandList>& commandList, aiNode* node,
 
 void Scene::ProcessMesh(std::shared_ptr<CommandList>& commandList, aiMesh* mesh, const aiScene* scene)
 {
-    static VertexCollection vertices;
+    static VertexExtendedCollection vertices;
     static IndexCollection indices;
 
     vertices.clear();
     indices.clear();
+
+    CollectorBVData collectorBVData;
 
     for (unsigned int i = 0; i < mesh->mNumVertices; i++)
     {
@@ -78,6 +83,7 @@ void Scene::ProcessMesh(std::shared_ptr<CommandList>& commandList, aiMesh* mesh,
         position.x = mesh->mVertices[i].x;
         position.y = mesh->mVertices[i].y;
         position.z = mesh->mVertices[i].z;
+        collectorBVData.Collect(position);
 
         DirectX::XMFLOAT3 normal;
         normal.x = mesh->mNormals[i].x;
@@ -105,7 +111,7 @@ void Scene::ProcessMesh(std::shared_ptr<CommandList>& commandList, aiMesh* mesh,
             textureCoordinate = {0., 0.};
         }
   
-        vertices.emplace_back(PosNormTexTangBitangVertex(position, normal, textureCoordinate, tangent, bitangent));
+        vertices.emplace_back(PosNormTexExtendedVertex(position, normal, textureCoordinate, tangent, bitangent));
     }
 
     for (unsigned int i = 0; i < mesh->mNumFaces; i++)
@@ -115,7 +121,15 @@ void Scene::ProcessMesh(std::shared_ptr<CommandList>& commandList, aiMesh* mesh,
             indices.push_back(face.mIndices[j]);
     }
 
-    std::shared_ptr<Mesh> storedMesh = Mesh::CreateCustomMesh(*commandList, vertices, indices, m_last_rhcoords);
+
+    MeshCreatorInfo info;
+    info.bv_min_pos = collectorBVData.GetMin();
+    info.bv_max_pos = collectorBVData.GetMax();
+    info.bv_pos = collectorBVData.GetCenter();
+    info.rhcoords = m_last_rhcoords;
+    info.scale = m_last_scale;
+
+    std::shared_ptr<Mesh> storedMesh = Mesh::CreateCustomMesh(*commandList, vertices, indices, info);
 
     std::shared_ptr<Material> meshMaterial(new Material);
     if (mesh->mMaterialIndex >= 0)
@@ -172,6 +186,21 @@ void Scene::Render(std::shared_ptr<CommandList>& commandList, std::function<void
     {
         auto& mesh = nextMesh.first;
         auto& mat = nextMesh.second;
+
+        drawMatFun(mat);
+        mesh->Render(*commandList);
+    }
+}
+
+void Scene::Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, std::function<void(std::shared_ptr<Material>&)>& drawMatFun)
+{
+    for (auto& nextMesh : m_Data)
+    {
+        auto& mesh = nextMesh.first;
+        auto& mat = nextMesh.second;
+
+        if (!Frustum::FrustumInSphere(mesh->GetBSphere(), frustum.GetFrustumPlanesF4()))
+            continue;
 
         drawMatFun(mat);
         mesh->Render(*commandList);

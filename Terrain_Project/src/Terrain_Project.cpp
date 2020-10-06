@@ -1,4 +1,4 @@
-#include <Lesson2_forward_shading.h>
+#include <Terrain_Project.h>
 
 #include <Application.h>
 #include <CommandQueue.h>
@@ -10,21 +10,19 @@
 using namespace dx12demo;
 using namespace DirectX;
 
+const float SCREEN_DEPTH = 1000.0f;
+const float SCREEN_NEAR = 0.1f;
 
 enum class SceneRootParameters
 {
     MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
-    LightPropertiesCB,  // ConstantBuffer<LightProperties> LightPropertiesCB : register( b1 );
-    PointLights,        // StructuredBuffer<PointLight> PointLights : register( t0 );
-    SpotLights,         // StructuredBuffer<SpotLight> SpotLights : register( t1 );
-    AmbientTex,         // Texture2D AmbientTexture : register( t2 );
-    DiffuseTex,         // Texture2D DiffuseTexture : register( t3 );
-    SpecularTex,        // Texture2D SpecularTexture : register( t4 );
-    NormalTex,          // Texture2D SpecularTexture : register( t5 );
+    DirLight,           // StructuredBuffer<PointLight> PointLights : register( b1 );
+    AmbientTex,         // Texture2D AmbientTexture : register( t0 );
     NumRootParameters
 };
 
-struct Mat
+
+struct __declspec(align(16)) Mat
 {
     XMMATRIX ModelMatrix;
     XMMATRIX ModelViewMatrix;
@@ -32,7 +30,7 @@ struct Mat
     XMMATRIX ModelViewProjectionMatrix;
 };
 
-struct LightProperties
+struct __declspec(align(16)) LightProperties
 {
     uint32_t NumPointLights;
     uint32_t NumSpotLights;
@@ -61,7 +59,7 @@ static void ShowHelpMarker(const char* desc)
 }
 
 
-Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int width, int height, bool vSync)
+Terrain_Project::Terrain_Project(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
     , m_Forward(0)
@@ -78,12 +76,12 @@ Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int w
     , m_Height(0)
     , m_RenderScale(1.0f)
 {
-    XMVECTOR cameraPos = XMVectorSet(0, 5, -20, 1);
+    XMVECTOR cameraPos = XMVectorSet(50, 2, -7, 1);
     XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
     m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_Camera.set_Projection(45.0f, width / (float)height, 0.1f, 100.0f);
+    m_Camera.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
 
     m_ViewMatrix = m_Camera.get_ViewMatrix();
     m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
@@ -93,40 +91,36 @@ Lesson2_forward_shading::Lesson2_forward_shading(const std::wstring& name, int w
     m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
     m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
+    /*
+    m_CameraEuler.set_LookAt(cameraPos, cameraTarget, cameraUp);
+    m_CameraEuler.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
 
+    m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
+    m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
+    */
+
+    m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
+    m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+    m_DirLight.lightDirection = { -0.5f, -1.0f, 0.0f };
 }
 
-Lesson2_forward_shading::~Lesson2_forward_shading()
+Terrain_Project::~Terrain_Project()
 {
     _aligned_free(m_pAlignedCameraData);
 }
 
-bool Lesson2_forward_shading::LoadContent()
+bool Terrain_Project::LoadContent()
 {
     auto& app = GetApp();
     auto& device = app.GetDevice();
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
 
-    m_Scene.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
-    //m_Scene.LoadFromFile(commandList, L"Assets/models/nanosuit/nanosuit.obj", true);
+    core::TerrainInfo terraInfo;
+    terraInfo.heightMapPath = "Assets/Textures/heightmap01.bmp";
+    m_Scene.Generate(*commandList, terraInfo);
 
-
-    // Create a cubemap for the HDR panorama.
-    {
-        // Create an inverted (reverse winding order) cube so the insides are not clipped.
-        m_SkyboxMesh = core::Mesh::CreateCube(*commandList, 1.0f, true);
-        commandList->LoadTextureFromFile(m_GraceCathedralTexture, L"Assets/Textures/grace-new.hdr");
-
-        auto cubemapDesc = m_GraceCathedralTexture.GetD3D12ResourceDesc();
-        cubemapDesc.Width = cubemapDesc.Height = 1024;
-        cubemapDesc.DepthOrArraySize = 6;
-        cubemapDesc.MipLevels = 0;
-
-        m_GraceCathedralCubemap = core::Texture(cubemapDesc, nullptr, TextureUsage::Albedo, L"Grace Cathedral Cubemap");
-        // Convert the 2D panorama to a 3D cubemap.
-        commandList->PanoToCubemap(m_GraceCathedralCubemap, m_GraceCathedralTexture);
-    }
+    //m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -170,64 +164,24 @@ bool Lesson2_forward_shading::LoadContent()
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
-    // Create a root signature and PSO for the skybox shaders.
     {
-        // Load the Skybox shaders.
-        ComPtr<ID3DBlob> vs;
-        ComPtr<ID3DBlob> ps;
-        ThrowIfFailed(D3DReadFileToBlob(L"SkyboxVS.cso", &vs));
-        ThrowIfFailed(D3DReadFileToBlob(L"SkyboxPS.cso", &ps));
-
-        // Setup the input layout for the skybox vertex shader.
-        D3D12_INPUT_ELEMENT_DESC inputLayout[1] = {
-            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        };
-
-        // Allow input layout and deny unnecessary access to certain pipeline stages.
-        D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
-
-        CD3DX12_DESCRIPTOR_RANGE1 descriptorRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-        CD3DX12_ROOT_PARAMETER1 rootParameters[2];
-        rootParameters[0].InitAsConstants(sizeof(DirectX::XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-        rootParameters[1].InitAsDescriptorTable(1, &descriptorRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_STATIC_SAMPLER_DESC linearClampSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
-
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-        rootSignatureDescription.Init_1_1(2, rootParameters, 1, &linearClampSampler, rootSignatureFlags);
-
-        m_SkyboxSignature.SetRootSignatureDesc(rootSignatureDescription.Desc_1_1, featureData.HighestVersion);
-
-        // Setup the Skybox pipeline state.
-        struct SkyboxPipelineState
-        {
-            CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-            CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
-            CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
-            CD3DX12_PIPELINE_STATE_STREAM_VS VS;
-            CD3DX12_PIPELINE_STATE_STREAM_PS PS;
-            CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-        } skyboxPipelineStateStream;
-
-        skyboxPipelineStateStream.pRootSignature = m_SkyboxSignature.GetRootSignature().Get();
-        skyboxPipelineStateStream.InputLayout = { inputLayout, 1 };
-        skyboxPipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        skyboxPipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
-        skyboxPipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());
-        skyboxPipelineStateStream.RTVFormats = m_RenderTarget.GetRenderTargetFormats();
-
-        D3D12_PIPELINE_STATE_STREAM_DESC skyboxPipelineStateStreamDesc = {
-            sizeof(SkyboxPipelineState), &skyboxPipelineStateStream
-        };
-        ThrowIfFailed(device->CreatePipelineState(&skyboxPipelineStateStreamDesc, IID_PPV_ARGS(&m_SkyboxPipelineState)));
+        core::EnvironmentMapRenderPassInfo envInfo;
+        envInfo.commandList = &*commandList;
+        envInfo.camera = &m_Camera;
+        envInfo.cubeMapSize = 1024;
+        envInfo.cubeMapDepthOrArraySize = 6;
+        envInfo.texturePath = L"Assets/Textures/grace-new.hdr";
+        envInfo.textureName = L"Grace Cathedral Cubemap";
+        envInfo.rootSignatureVersion = featureData.HighestVersion;
+        envInfo.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        m_envRenderPass.LoadContent(&envInfo);
     }
+
 
     // Create a root signature for the forward shading (scene) pipeline.
     {
+        commandList->LoadTextureFromFile(m_TerrainTexture, L"Assets/Textures/terrain1.dds");
+
         // Load the  shaders.
         ComPtr<ID3DBlob> vs;
         ComPtr<ID3DBlob> ps;
@@ -241,25 +195,11 @@ bool Lesson2_forward_shading::LoadContent()
             D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
             D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
 
-
         CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(SceneRootParameters::NumRootParameters)];
-        rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
-        
-        rootParameters[static_cast<int>(SceneRootParameters::LightPropertiesCB)].InitAsConstants(sizeof(LightProperties) / 4, 1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
-        rootParameters[static_cast<int>(SceneRootParameters::PointLights)].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-        rootParameters[static_cast<int>(SceneRootParameters::SpotLights)].InitAsShaderResourceView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
+        rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);      
+        rootParameters[static_cast<int>(SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[static_cast<int>(SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 diffuseTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-        rootParameters[static_cast<int>(SceneRootParameters::DiffuseTex)].InitAsDescriptorTable(1, &diffuseTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 specularTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
-        rootParameters[static_cast<int>(SceneRootParameters::SpecularTex)].InitAsDescriptorTable(1, &specularTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_DESCRIPTOR_RANGE1 normalTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 5);
-        rootParameters[static_cast<int>(SceneRootParameters::NormalTex)].InitAsDescriptorTable(1, &normalTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
         CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
 
@@ -347,13 +287,13 @@ bool Lesson2_forward_shading::LoadContent()
     return true;
 }
 
-void Lesson2_forward_shading::UnloadContent()
+void Terrain_Project::UnloadContent()
 {
     m_ContentLoaded = false;
 }
 
 
-void Lesson2_forward_shading::OnResize(core::ResizeEventArgs& e)
+void Terrain_Project::OnResize(core::ResizeEventArgs& e)
 {
     super::OnResize(e);
 
@@ -365,12 +305,13 @@ void Lesson2_forward_shading::OnResize(core::ResizeEventArgs& e)
         float fov = m_Camera.get_FoV();
         float aspectRatio = m_Width / (float)m_Height;
         m_Camera.set_Projection(fov, aspectRatio, 0.1f, 100.0f);
+        //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
 
         RescaleRenderTarget(m_RenderScale);
     }
 }
 
-void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
+void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
 {
     static uint64_t frameCount = 0;
     static double totalTime = 0.0;
@@ -391,6 +332,10 @@ void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
         frameCount = 0;
         totalTime = 0.0;
     }
+
+    {
+        //m_CameraEuler.Movement(e.ElapsedTime);
+    }
     {
         // Update the camera.
         float speedMultipler = (m_Shift ? 16.0f : 4.0f);
@@ -404,74 +349,13 @@ void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
         m_Camera.set_Rotation(cameraRotation);
 
         float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
-        m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, 0.1f, 100.0f);
+        m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
+        //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
     }
-
     {
-        const int numPointLights = 4;
-        const int numSpotLights = 4;
-
-        static const XMVECTORF32 LightColors[] =
-        {
-            Colors::White, Colors::Orange, Colors::Yellow, Colors::Green, Colors::Blue, Colors::Indigo, Colors::Violet, Colors::White
-        };
-
-        static float lightAnimTime = 0.0f;
-        if (m_AnimateLights)
-        {
-            lightAnimTime += static_cast<float>(e.ElapsedTime) * 0.5f * XM_PI;
-        }
-
-        const float radius = 8.0f;
-        const float offset = 2.0f * XM_PI / numPointLights;
-        const float offset2 = offset + (offset / 2.0f);
-
-        // Setup the light buffers.
-        m_PointLights.resize(numPointLights);
-        for (int i = 0; i < numPointLights; ++i)
-        {
-            core::PointLight& l = m_PointLights[i];
-
-            l.PositionWS = {
-                static_cast<float>(std::sin(lightAnimTime + offset * i)) * radius,
-                9.0f,
-                static_cast<float>(std::cos(lightAnimTime + offset * i)) * radius,
-                1.0f
-            };
-            XMVECTOR positionWS = XMLoadFloat4(&l.PositionWS);
-            XMVECTOR positionVS = XMVector3TransformCoord(positionWS, m_ViewMatrix);
-            XMStoreFloat4(&l.PositionVS, positionVS);
-
-            l.Color = XMFLOAT4(LightColors[i]);
-            l.Intensity = 0.5f;
-            l.Attenuation = 1.0f;
-        }
-
-        m_SpotLights.resize(numSpotLights);
-        for (int i = 0; i < numSpotLights; ++i)
-        {
-            core::SpotLight& l = m_SpotLights[i];
-
-            l.PositionWS = {
-                static_cast<float>(std::sin(lightAnimTime + offset * i + offset2)) * radius,
-                9.0f,
-                static_cast<float>(std::cos(lightAnimTime + offset * i + offset2)) * radius,
-                1.0f
-            };
-            XMVECTOR positionWS = XMLoadFloat4(&l.PositionWS);
-            XMVECTOR positionVS = XMVector3TransformCoord(positionWS, m_ViewMatrix);
-            XMStoreFloat4(&l.PositionVS, positionVS);
-
-            XMVECTOR directionWS = XMVector3Normalize(XMVectorSetW(XMVectorNegate(positionWS), 0));
-            XMVECTOR directionVS = XMVector3Normalize(XMVector3TransformNormal(directionWS, m_ViewMatrix));
-            XMStoreFloat4(&l.DirectionWS, directionWS);
-            XMStoreFloat4(&l.DirectionVS, directionVS);
-
-            l.Color = XMFLOAT4(LightColors[numPointLights + i]);
-            l.Intensity = 0.5f;
-            l.SpotAngle = XMConvertToRadians(45.0f);
-            l.Attenuation = 1.0f;
-        }
+        auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
+        auto commandList = commandQueue->GetCommandList();
+        m_envRenderPass.OnUpdate(*commandList, e);
     }
 
     {
@@ -481,13 +365,20 @@ void Lesson2_forward_shading::OnUpdate(core::UpdateEventArgs& e)
         m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
         m_ViewMatrix = m_Camera.get_ViewMatrix();
+        //m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
 
         // Update the projection matrix.
         m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+        //m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
+    }
+
+    {
+        m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera.get_ViewMatrix(), m_Camera.get_ProjectionMatrix());
+        //m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_CameraEuler.get_ViewMatrix(), m_CameraEuler.get_ProjectionMatrix());
     }
 }
 
-void Lesson2_forward_shading::RescaleRenderTarget(float scale)
+void Terrain_Project::RescaleRenderTarget(float scale)
 {
     uint32_t width = static_cast<uint32_t>(m_Width * scale);
     uint32_t height = static_cast<uint32_t>(m_Height * scale);
@@ -498,7 +389,7 @@ void Lesson2_forward_shading::RescaleRenderTarget(float scale)
     m_RenderTarget.Resize(width, height);
 }
 
-void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
+void Terrain_Project::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
@@ -519,64 +410,36 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        // The view matrix should only consider the camera's rotation, but not the translation.
-        auto viewMatrix = XMMatrixTranspose(XMMatrixRotationQuaternion(m_Camera.get_Rotation()));
-        auto& projMatrix = m_Camera.get_ProjectionMatrix();
-        auto viewProjMatrix = viewMatrix * projMatrix;
-
-        commandList->SetPipelineState(m_SkyboxPipelineState);
-        commandList->SetGraphicsRootSignature(m_SkyboxSignature);
-
-        commandList->SetGraphics32BitConstants(0, viewProjMatrix);
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Format = m_GraceCathedralCubemap.GetD3D12ResourceDesc().Format;
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-        srvDesc.TextureCube.MipLevels = (UINT)-1; // Use all mips.
-
-        commandList->SetShaderResourceView(1, 0, m_GraceCathedralCubemap, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, &srvDesc);
-
-        m_SkyboxMesh->Render(*commandList);
+        //m_envRenderPass.OnRender(*commandList, e);
     }
 
     commandList->SetPipelineState(m_ScenePipelineState);
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
     {
-        // Upload lights
-        LightProperties lightProps;
-        lightProps.NumPointLights = static_cast<uint32_t>(m_PointLights.size());
-        lightProps.NumSpotLights = static_cast<uint32_t>(m_SpotLights.size());
-
-        commandList->SetGraphics32BitConstants(static_cast<int>(SceneRootParameters::LightPropertiesCB), lightProps);
-        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(SceneRootParameters::PointLights), m_PointLights);
-        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(SceneRootParameters::SpotLights), m_SpotLights);
 
         Mat matrices;
-        //auto model = XMMatrixIdentity();
-        auto model = XMMatrixScaling(0.002f, 0.002f, 0.002f);
-        
+        auto model = XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
+        commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
+        m_Scene.Render(*commandList);
+
         std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
         {
             if (!material->GetAmbientTex().IsEmpty())
                 commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-       
-            if (!material->GetDiffuseTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::DiffuseTex), 0, material->GetDiffuseTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-            if (!material->GetSpecularTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::SpecularTex), 0, material->GetSpecularTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-            if (!material->GetNormalTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::NormalTex), 0, material->GetNormalTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         };
 
-        m_Scene.Render(commandList, materialDrawFun);
+        model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
+        ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
+
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
+
+        //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -595,7 +458,7 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
     m_pWindow->Present();
 }
 
-void Lesson2_forward_shading::OnKeyPressed(core::KeyEventArgs& e)
+void Terrain_Project::OnKeyPressed(core::KeyEventArgs& e)
 {
     super::OnKeyPressed(e);
     if (!ImGui::GetIO().WantCaptureKeyboard)
@@ -616,9 +479,9 @@ void Lesson2_forward_shading::OnKeyPressed(core::KeyEventArgs& e)
             break;
         case KeyCode::R:
             // Reset camera transform
-            m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
-            m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
-            m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
+            //m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
+            //m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
+            //m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
             m_Pitch = 0.0f;
             m_Yaw = 0.0f;
             break;
@@ -651,9 +514,11 @@ void Lesson2_forward_shading::OnKeyPressed(core::KeyEventArgs& e)
             m_Shift = true;
             break;
         }
+
+    //m_CameraEuler.KeyProcessing(e);
 }
 
-void Lesson2_forward_shading::OnKeyReleased(core::KeyEventArgs& e)
+void Terrain_Project::OnKeyReleased(core::KeyEventArgs& e)
 {
     super::OnKeyReleased(e);
 
@@ -685,10 +550,12 @@ void Lesson2_forward_shading::OnKeyReleased(core::KeyEventArgs& e)
         case KeyCode::ShiftKey:
             m_Shift = false;
             break;
-        }  
+        } 
+
+    //m_CameraEuler.KeyProcessing(e);
 }
 
-void Lesson2_forward_shading::OnMouseMoved(core::MouseMotionEventArgs& e)
+void Terrain_Project::OnMouseMoved(core::MouseMotionEventArgs& e)
 {
     super::OnMouseMoved(e);
 
@@ -703,9 +570,10 @@ void Lesson2_forward_shading::OnMouseMoved(core::MouseMotionEventArgs& e)
 
             m_Yaw -= e.RelX * mouseSpeed;
         }
+    //m_CameraEuler.MouseProcessing(e);
 }
 
-void Lesson2_forward_shading::OnMouseWheel(core::MouseWheelEventArgs& e)
+void Terrain_Project::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
@@ -716,18 +584,21 @@ void Lesson2_forward_shading::OnMouseWheel(core::MouseWheelEventArgs& e)
 
         m_Camera.set_FoV(fov);
 
+        //m_CameraEuler.ScrollProcessing(e);
+        //auto fov = m_CameraEuler.get_FoV();
+
         char buffer[256];
         sprintf_s(buffer, "FoV: %f\n", fov);
         OutputDebugStringA(buffer);
     }
 }
 
-void Lesson2_forward_shading::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
+void Terrain_Project::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
 {
     ImGui::GetIO().FontGlobalScale = e.DPIScale;
 }
 
-void Lesson2_forward_shading::OnGUI()
+void Terrain_Project::OnGUI()
 {
     static bool showDemoWindow = false;
 

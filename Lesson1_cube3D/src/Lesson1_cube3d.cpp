@@ -239,7 +239,7 @@ bool Lesson1_cube3d::LoadContent()
         } pipelineStateStream;
 
         pipelineStateStream.pRootSignature = m_RootSignature.GetRootSignature().Get();
-        pipelineStateStream.InputLayout = { core::PosNormTexTangBitangVertex::InputElements, core::PosNormTexTangBitangVertex::InputElementCount };
+        pipelineStateStream.InputLayout = { core::PosNormTexVertex::InputElements, core::PosNormTexVertex::InputElementCount };
         pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
         pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());

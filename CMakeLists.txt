@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.18.2 ) # Latest version of CMake when this file was created.
+cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this file was created.
 
 # Use solution folders to organize projects
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -33,17 +33,9 @@ add_subdirectory( DirectXTex )
 add_subdirectory( Core )
 add_subdirectory( Lesson1_cube3D )
 add_subdirectory( Lesson2_forward_shading )
-<<<<<<< Updated upstream
-
-# Set the startup project.
-set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT Lesson2_forward_shading
-=======
 add_subdirectory( Terrain_Project )
 add_subdirectory( StencilDemo )
 
-# Set the startup project.
 set_directory_properties( PROPERTIES 
     VS_STARTUP_PROJECT StencilDemo
->>>>>>> Stashed changes
 )

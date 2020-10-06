@@ -1,8 +1,9 @@
-cmake_minimum_required( VERSION 3.18.2 ) # Latest version of CMake when this file was created.
+cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this file was created.
 
 set( HEADER_FILES 
     inc/DX12LibPCH.h
     inc/Application.h
+	inc/BoundingVolumesPrimitive.h
     inc/Buffer.h
     inc/ByteAddressBuffer.h
 	inc/Camera.h
@@ -13,6 +14,9 @@ set( HEADER_FILES
     inc/DescriptorAllocator.h
     inc/DescriptorAllocatorPage.h
     inc/DynamicDescriptorHeap.h
+	inc/EnvironmentMapRenderPass.h
+	inc/Frustum.h
+	inc/FrustumCullRenderPass.h
     inc/Events.h
     inc/Game.h
     inc/GenerateMipsPSO.h
@@ -24,7 +28,10 @@ set( HEADER_FILES
 	inc/Light.h
 	inc/Material.h
     inc/Mesh.h
+	inc/OcclusionCullRenderPass.h
     inc/PanoToCubemapPSO.h
+	inc/QuadTree.h
+	inc/RenderPassBase.h
     inc/RenderTarget.h
     inc/Resource.h
     inc/ResourceStateTracker.h
@@ -32,6 +39,7 @@ set( HEADER_FILES
     inc/Scene.h
     inc/SceneNode.h
     inc/StructuredBuffer.h
+	inc/Terrain.h
     inc/Texture.h
     inc/TextureUsage.h
     inc/ThreadSafeQueue.h
@@ -54,6 +62,10 @@ set( SOURCE_FILES
     src/DescriptorAllocator.cpp
     src/DescriptorAllocatorPage.cpp
     src/DynamicDescriptorHeap.cpp
+	src/EnvironmentMapRenderPass.cpp
+	src/Frustum.cpp
+	src/FrustumCullRenderPass.cpp
+	src/QuadTree.cpp
     src/Game.cpp
     src/GenerateMipsPSO.cpp
     src/GUI.cpp
@@ -61,7 +73,9 @@ set( SOURCE_FILES
     src/IndexBuffer.cpp
 	src/Material.cpp
     src/Mesh.cpp
+	src/OcclusionCullRenderPass.cpp
     src/PanoToCubemapPSO.cpp
+	src/RenderPassBase.cpp
     src/RenderTarget.cpp
     src/Resource.cpp
     src/ResourceStateTracker.cpp
@@ -69,6 +83,7 @@ set( SOURCE_FILES
 	src/Scene.cpp
     src/SceneNode.cpp
     src/StructuredBuffer.cpp
+	src/Terrain.cpp
     src/Texture.cpp
     src/UploadBuffer.cpp
 	src/URootObject.cpp
@@ -97,6 +112,8 @@ set( SHADER_FILES
 	shaders/PanoToCubemap_CS.hlsl
     shaders/ImGUI_VS.hlsl
     shaders/ImGUI_PS.hlsl
+	shaders/Skybox_VS.hlsl
+    shaders/Skybox_PS.hlsl
 )
 
 add_library( Core STATIC
@@ -106,9 +123,9 @@ add_library( Core STATIC
     ${IMGUI_HEADERS} ${IMGUI_SOURCE}	
 )
 
-# Enable C++17 compiler features.
+# Enable C++20 compiler features.
 target_compile_features( Core 
-	PUBLIC cxx_std_17
+	PUBLIC cxx_std_20
 )
 
 source_group( "shaders" FILES ${SHADER_FILES} )
@@ -156,4 +173,16 @@ set_source_files_properties( shaders/ImGUI_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_ImGUI_PS
+)
+
+set_source_files_properties( shaders/Skybox_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_Skybox_VS
+)
+
+set_source_files_properties( shaders/Skybox_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_Skybox_PS
 )
