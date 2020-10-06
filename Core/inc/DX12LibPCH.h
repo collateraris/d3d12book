@@ -4,6 +4,7 @@
 
 // The min/max macros conflict with like-named member functions.
 // Only use std::min and std::max defined in <algorithm>.
+
 #if defined(min)
 #undef min
 #endif
@@ -47,6 +48,7 @@ using namespace DirectX;
 #include <unordered_map>
 #include <thread>
 #include <vector>
+#include <math.h>
 
 namespace fs = std::filesystem;
 

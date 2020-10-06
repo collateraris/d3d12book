@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.18.2 ) # Latest version of CMake when this file was created.
+cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this file was created.
 
 set( PUBLIC_HEADER_FILES 
     DirectXTex/DirectXTex.h
@@ -93,9 +93,9 @@ target_include_directories( DirectXTex
     PUBLIC DirectXTex
 )
 
-# Enable C++17 compiler features.
+# Enable C++20 compiler features.
 target_compile_features( DirectXTex 
-	PUBLIC cxx_std_17
+	PUBLIC cxx_std_20
 )
 
 add_custom_command( OUTPUT ${COMPILED_SHADER_FILES} ${SHADER_SYMBOL_FILES}
