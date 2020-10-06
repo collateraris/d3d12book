@@ -22,6 +22,7 @@ namespace dx12demo::core
 	class Mesh;
 	class Material;
 	class CommandList;
+	class Frustum;
 
 	class Scene : public URootObject
 	{
@@ -29,8 +30,9 @@ namespace dx12demo::core
 		Scene();
 		virtual ~Scene();
 
-		bool LoadFromFile(std::shared_ptr<CommandList>& commandList, const std::wstring& fileName, bool rhcoords = false);
+		bool LoadFromFile(std::shared_ptr<CommandList>& commandList, const std::wstring& fileName, bool rhcoords = false, float scale = 1);
 		void Render(std::shared_ptr<CommandList>& commandList, std::function<void(std::shared_ptr<Material>&)>& drawMatFun);
+		void Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, std::function<void(std::shared_ptr<Material>&)>& drawMatFun);
 
 	private:
 
@@ -46,6 +48,7 @@ namespace dx12demo::core
 
 		std::string m_lastDirectory;
 		bool m_last_rhcoords = false;
+		float m_last_scale = 1;
 	};
 
 }

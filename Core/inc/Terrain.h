@@ -4,6 +4,7 @@
 #include <QuadTree.h>
 
 #include <string>
+#include <vector>
 
 namespace dx12demo::core
 {
@@ -15,6 +16,7 @@ namespace dx12demo::core
 	};
 
 	class CommandList;
+	class Frustum;
 
 	class Terrain : public URootObject
 	{
@@ -26,6 +28,8 @@ namespace dx12demo::core
 		void Generate(CommandList& commandList, const TerrainInfo&);
 
 		void Render(CommandList& commandList);
+
+		void Render(CommandList& commandList, Frustum& frustum);
 
 	private:
 

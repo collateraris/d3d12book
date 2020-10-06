@@ -10,6 +10,9 @@
 using namespace dx12demo;
 using namespace DirectX;
 
+const float SCREEN_DEPTH = 1000.0f;
+const float SCREEN_NEAR = 0.1f;
+
 enum class SceneRootParameters
 {
     MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
@@ -78,7 +81,7 @@ Terrain_Project::Terrain_Project(const std::wstring& name, int width, int height
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
     m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_Camera.set_Projection(45.0f, width / (float)height, 0.1f, 100.0f);
+    m_Camera.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
 
     m_ViewMatrix = m_Camera.get_ViewMatrix();
     m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
@@ -88,6 +91,13 @@ Terrain_Project::Terrain_Project(const std::wstring& name, int width, int height
     m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
     m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
+    /*
+    m_CameraEuler.set_LookAt(cameraPos, cameraTarget, cameraUp);
+    m_CameraEuler.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
+
+    m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
+    m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
+    */
 
     m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
     m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -109,6 +119,8 @@ bool Terrain_Project::LoadContent()
     core::TerrainInfo terraInfo;
     terraInfo.heightMapPath = "Assets/Textures/heightmap01.bmp";
     m_Scene.Generate(*commandList, terraInfo);
+
+    m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -293,6 +305,7 @@ void Terrain_Project::OnResize(core::ResizeEventArgs& e)
         float fov = m_Camera.get_FoV();
         float aspectRatio = m_Width / (float)m_Height;
         m_Camera.set_Projection(fov, aspectRatio, 0.1f, 100.0f);
+        //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
 
         RescaleRenderTarget(m_RenderScale);
     }
@@ -319,6 +332,10 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
         frameCount = 0;
         totalTime = 0.0;
     }
+
+    {
+        //m_CameraEuler.Movement(e.ElapsedTime);
+    }
     {
         // Update the camera.
         float speedMultipler = (m_Shift ? 16.0f : 4.0f);
@@ -332,7 +349,8 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
         m_Camera.set_Rotation(cameraRotation);
 
         float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
-        m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, 0.1f, 100.0f);
+        m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
+        //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
     }
     {
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
@@ -347,9 +365,16 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
         m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
         m_ViewMatrix = m_Camera.get_ViewMatrix();
+        //m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
 
         // Update the projection matrix.
         m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+        //m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
+    }
+
+    {
+        m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera.get_ViewMatrix(), m_Camera.get_ProjectionMatrix());
+        //m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_CameraEuler.get_ViewMatrix(), m_CameraEuler.get_ProjectionMatrix());
     }
 }
 
@@ -385,7 +410,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        m_envRenderPass.OnRender(*commandList, e);
+        //m_envRenderPass.OnRender(*commandList, e);
     }
 
     commandList->SetPipelineState(m_ScenePipelineState);
@@ -401,7 +426,20 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
         commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
-        m_Scene.Render(*commandList);
+        m_Scene.Render(*commandList, m_Frustum);
+
+        std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
+        {
+            if (!material->GetAmbientTex().IsEmpty())
+                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        };
+
+        model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
+        ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
+
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
+
+        m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -441,9 +479,9 @@ void Terrain_Project::OnKeyPressed(core::KeyEventArgs& e)
             break;
         case KeyCode::R:
             // Reset camera transform
-            m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
-            m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
-            m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
+            //m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
+            //m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
+            //m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
             m_Pitch = 0.0f;
             m_Yaw = 0.0f;
             break;
@@ -476,6 +514,8 @@ void Terrain_Project::OnKeyPressed(core::KeyEventArgs& e)
             m_Shift = true;
             break;
         }
+
+    //m_CameraEuler.KeyProcessing(e);
 }
 
 void Terrain_Project::OnKeyReleased(core::KeyEventArgs& e)
@@ -510,7 +550,9 @@ void Terrain_Project::OnKeyReleased(core::KeyEventArgs& e)
         case KeyCode::ShiftKey:
             m_Shift = false;
             break;
-        }  
+        } 
+
+    //m_CameraEuler.KeyProcessing(e);
 }
 
 void Terrain_Project::OnMouseMoved(core::MouseMotionEventArgs& e)
@@ -528,6 +570,7 @@ void Terrain_Project::OnMouseMoved(core::MouseMotionEventArgs& e)
 
             m_Yaw -= e.RelX * mouseSpeed;
         }
+    //m_CameraEuler.MouseProcessing(e);
 }
 
 void Terrain_Project::OnMouseWheel(core::MouseWheelEventArgs& e)
@@ -540,6 +583,9 @@ void Terrain_Project::OnMouseWheel(core::MouseWheelEventArgs& e)
         fov = std::clamp(fov, 12.0f, 90.0f);
 
         m_Camera.set_FoV(fov);
+
+        //m_CameraEuler.ScrollProcessing(e);
+        //auto fov = m_CameraEuler.get_FoV();
 
         char buffer[256];
         sprintf_s(buffer, "FoV: %f\n", fov);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Camera.h>
+#include <CameraEuler.h>
 #include <Game.h>
 #include <Window.h>
 #include <Mesh.h>
@@ -9,6 +10,7 @@
 #include <RootSignature.h>
 #include <Scene.h>
 #include <Terrain.h>
+#include <Frustum.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -88,6 +90,7 @@ namespace dx12demo
         core::Texture m_TerrainTexture;
 
         core::Terrain m_Scene;
+        core::Scene m_Sponza;
         LightBuffer m_DirLight;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
@@ -101,6 +104,7 @@ namespace dx12demo
         float m_RenderScale;
 
         core::Camera m_Camera;
+        //CameraEuler m_CameraEuler;
         struct alignas(16) CameraData
         {
             DirectX::XMVECTOR m_InitialCamPos;
@@ -108,6 +112,8 @@ namespace dx12demo
             float m_InitialFov;
         };
         CameraData* m_pAlignedCameraData;
+
+        core::Frustum m_Frustum;
 
         // Camera controller
         float m_Forward;

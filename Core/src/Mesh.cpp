@@ -46,6 +46,58 @@ void Mesh::Render(CommandList& commandList, uint32_t instanceCount, uint32_t fir
     }
 }
 
+void Mesh::SetBSphere(BSphere& sphere)
+{
+    m_bsphere = sphere;
+}
+
+void Mesh::SetBAABB(BAABB& baabb)
+{
+    m_baabb = baabb;
+}
+
+const BSphere& Mesh::GetBSphere() const
+{
+    return m_bsphere;
+}
+
+const BAABB& Mesh::GetBAABB() const
+{
+    return m_baabb;
+}
+
+std::unique_ptr<Mesh> Mesh::CreateCustomMesh(CommandList& commandList, VertexExtendedCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info)
+{
+    auto mesh = Mesh::CreateCustomMesh(commandList, vertices, indices, info.rhcoords);
+
+    BSphere bsphere;
+    bsphere.pos = info.bv_pos;
+    bsphere.r = Math::float3Radius(info.bv_max_pos, info.bv_min_pos) * 0.5f;
+    mesh->SetBSphere(bsphere);
+    BAABB bAABB;
+    bAABB.box_max = info.bv_max_pos;
+    bAABB.box_min = info.bv_min_pos;
+    mesh->SetBAABB(bAABB);
+
+    return mesh;
+}
+
+std::unique_ptr<Mesh> Mesh::CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info)
+{
+    auto mesh = Mesh::CreateCustomMesh(commandList, vertices, indices, info.rhcoords);
+
+    BSphere bsphere;
+    bsphere.pos = info.bv_pos;
+    bsphere.r = Math::float3Radius(info.bv_max_pos, info.bv_min_pos) * 0.5f;
+    mesh->SetBSphere(bsphere);
+    BAABB bAABB;
+    bAABB.box_max = info.bv_max_pos;
+    bAABB.box_min = info.bv_min_pos;
+    mesh->SetBAABB(bAABB);
+
+    return mesh;
+}
+
 std::unique_ptr<Mesh> Mesh::CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, bool rhcoords/* = false*/)
 {
     // Create the customs object.

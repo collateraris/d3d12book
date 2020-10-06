@@ -3,6 +3,7 @@
 #include <CommandList.h>
 #include <VertexBuffer.h>
 #include <IndexBuffer.h>
+#include <BoundingVolumesPrimitive.h>
 
 #include <DirectXMath.h>
 #include <d3d12.h>
@@ -15,7 +16,7 @@
 namespace dx12demo::core
 {
 	// Vertex struct holding position, normal vector, and texture mapping information.
-	struct PosNormTexVertex
+    __declspec(align(16)) struct PosNormTexVertex
 	{
         PosNormTexVertex()
         { }
@@ -53,7 +54,7 @@ namespace dx12demo::core
 	};
 
     // Vertex struct holding position, normal vector, and texture mapping information.
-    struct PosNormTexExtendedVertex
+    __declspec(align(16)) struct PosNormTexExtendedVertex
     {
         PosNormTexExtendedVertex()
         { }
@@ -107,12 +108,24 @@ namespace dx12demo::core
     using VertexExtendedCollection = std::vector<PosNormTexExtendedVertex>;
     using IndexCollection = std::vector<uint16_t>;
 
+    struct MeshCreatorInfo
+    {
+        DirectX::XMFLOAT3 bv_pos;
+        DirectX::XMFLOAT3 bv_min_pos;
+        DirectX::XMFLOAT3 bv_max_pos;
+
+        unsigned int scale = 1;
+        bool rhcoords = false;
+    };
+
     class Mesh
     {
     public:
 
         void Render(CommandList& commandList, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
 
+        static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexExtendedCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info);
+        static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info);
         static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexExtendedCollection& vertices, IndexCollection& indices, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateCube(CommandList& commandList, float size = 1, bool rhcoords = false);
@@ -121,7 +134,13 @@ namespace dx12demo::core
         static std::unique_ptr<Mesh> CreateTorus(CommandList& commandList, float diameter = 1, float thickness = 0.333f, size_t tessellation = 32, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreatePlane(CommandList& commandList, float width = 1, float height = 1, bool rhcoords = false);
 
+        const BSphere& GetBSphere() const;
+        const BAABB& GetBAABB() const;
+
     protected:
+
+        void SetBSphere(BSphere& sphere);
+        void SetBAABB(BAABB& saabb);
 
     private:
         friend struct std::default_delete<Mesh>;
@@ -135,6 +154,9 @@ namespace dx12demo::core
 
         VertexBuffer m_VertexBuffer;
         IndexBuffer m_IndexBuffer;
+
+        BSphere m_bsphere;
+        BAABB m_baabb;
 
         UINT m_IndexCount;
     };

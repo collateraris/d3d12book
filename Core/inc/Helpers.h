@@ -8,6 +8,7 @@
 #include <vector>
 #include <cassert>
 
+
 // From DXSampleHelper.h 
 // Source: https://github.com/Microsoft/DirectX-Graphics-Samples
 inline void ThrowIfFailed(HRESULT hr)
@@ -35,6 +36,13 @@ namespace Math
         return std::move(result);
     };
 
+    inline float float3Radius(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        float result = sqrtf((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
+
+        return result;
+    };
+
     inline DirectX::XMFLOAT3 float3Cross(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
     {
         DirectX::XMFLOAT3 result;
@@ -46,11 +54,23 @@ namespace Math
         return std::move(result);
     };
 
+    inline float float3Dot(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    };
+
     inline void float3Add(DirectX::XMFLOAT3& summator, const DirectX::XMFLOAT3& a)
     {
         summator.x += a.x;
         summator.y += a.y;
         summator.z += a.z;
+    }
+
+    inline void float3Mult(DirectX::XMFLOAT3& a, float scalar)
+    {
+        a.x *= scalar;
+        a.y *= scalar;
+        a.z *= scalar;
     }
 
     inline void float3Div(DirectX::XMFLOAT3& a, float scalar)

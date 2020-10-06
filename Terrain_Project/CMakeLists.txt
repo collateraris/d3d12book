@@ -2,11 +2,13 @@ cmake_minimum_required( VERSION 3.18.3 )
 
 set( HEADER_FILES 
     inc/Terrain_Project.h
+	inc/CameraEuler.h
 )
 
 set( SRC_FILES
 	main.cpp
 	src/Terrain_Project.cpp
+	src/CameraEuler.cpp
 )
 
 set( SHADER_FILES

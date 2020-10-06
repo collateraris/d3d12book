@@ -3,6 +3,7 @@ cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this fil
 set( HEADER_FILES 
     inc/DX12LibPCH.h
     inc/Application.h
+	inc/BoundingVolumesPrimitive.h
     inc/Buffer.h
     inc/ByteAddressBuffer.h
 	inc/Camera.h

@@ -3,6 +3,8 @@
 #include <URootObject.h>
 #include <Mesh.h>
 #include <CommandList.h>
+#include <BoundingVolumesPrimitive.h>
+#include <Frustum.h>
 
 #include <array>
 #include <vector>
@@ -26,14 +28,14 @@ namespace dx12demo::core
 		{
 			QuadTreeNode() = default;
 
-			float posX, posZ;
-			float width;
+			float posX = 0, posZ = 0;
+			float width = 0;
 			int triangleCount = 0;
-			std::unique_ptr<Mesh> mesh;
+			std::unique_ptr<Mesh> mesh = nullptr;
 			std::array<QuadTreeNode*, CHILD_IN_PARENT_NODE> childNodes = {nullptr, nullptr, nullptr, nullptr};
 		};
 
-		using NodesStorage = std::vector<QuadTreeNode>;
+		using NodesStorage = std::vector<QuadTreeNode*>;
 
 	public:
 		QuadTree();
@@ -43,21 +45,25 @@ namespace dx12demo::core
 		
 		void Render(CommandList& commandList);
 
+		void Render(CommandList& commandList, Frustum& frustum);
+
 	private:
 
 		void CalculateMeshDimensions(float& centerX, float& centerZ, float& meshWidth);
 
-		void CreateTreeNode(CommandList& commandList, QuadTreeNode* node, float positionX, float positionZ, float width);
+		void CreateTreeNode(CommandList& commandList, QuadTreeNode*& node, float positionX, float positionZ, float width);
 
 		int CountTriangles(QuadTreeNode* node);
 
 		bool IsTriangleContainedInSourceArea(int indexInSrcVertices, QuadTreeNode* node);
 
-		void SplitNode(CommandList& commandList, QuadTreeNode* node);
+		void SplitNode(CommandList& commandList, QuadTreeNode*& node);
 
-		void CreateMeshForNode(CommandList& commandList, QuadTreeNode* node);
+		void CreateMeshForNode(CommandList& commandList, QuadTreeNode*& node);
 
-		void AllocateNode(QuadTreeNode* node);
+		void AllocateNode(QuadTreeNode*& node);
+
+		void RenderNode(CommandList& commandList, const std::array<DirectX::XMFLOAT4, 6>& frustum_planes, QuadTreeNode*& node);
 
 		NodesStorage m_nodes;
 
@@ -79,14 +85,19 @@ namespace dx12demo::core
 	template<typename VerticesContainer>
 	QuadTree<VerticesContainer>::~QuadTree()
 	{
+		for (auto& node: m_nodes)
+		{
+			delete node;
+		}
+
 		m_nodes.clear();
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::AllocateNode(QuadTreeNode* node)
+	void QuadTree<VerticesContainer>::AllocateNode(QuadTreeNode*& node)
 	{
-		m_nodes.emplace_back(QuadTreeNode());
-		node = &m_nodes.back();
+		m_nodes.emplace_back(new QuadTreeNode());
+		node = m_nodes.back();
 	}
 
 	template<typename VerticesContainer>
@@ -149,19 +160,17 @@ namespace dx12demo::core
 		}
 
 		// Find the absolute maximum value between the min and max depth and width.
-		float maxX = max(fabs(minWidth), fabs(maxWidth));
-		float maxZ = max(fabs(minDepth), fabs(maxDepth));
+		float maxX = max(std::fabs(minWidth), std::fabs(maxWidth));
+		float maxZ = max(std::fabs(minDepth), std::fabs(maxDepth));
 
 		// Calculate the maximum diameter of the mesh.
 		meshWidth = max(maxX, maxZ) * 2.0f;
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::CreateTreeNode(CommandList& commandList, QuadTreeNode* node, float positionX, float positionZ, float width)
+	void QuadTree<VerticesContainer>::CreateTreeNode(CommandList& commandList, QuadTreeNode*& node, float positionX, float positionZ, float width)
 	{
-		//AllocateNode(node);
-		m_nodes.emplace_back(QuadTreeNode());
-		node = &m_nodes.back();
+		AllocateNode(node);
 		node->posX = positionX;
 		node->posZ = positionZ;
 		node->width = width;
@@ -260,7 +269,7 @@ namespace dx12demo::core
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::SplitNode(CommandList& commandList, QuadTreeNode* node)
+	void QuadTree<VerticesContainer>::SplitNode(CommandList& commandList, QuadTreeNode*& node)
 	{
 		const float width = node->width;
 		const float positionX = node->posX;
@@ -288,7 +297,7 @@ namespace dx12demo::core
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::CreateMeshForNode(CommandList& commandList, QuadTreeNode* node)
+	void QuadTree<VerticesContainer>::CreateMeshForNode(CommandList& commandList, QuadTreeNode*& node)
 	{
 		// Calculate the number of vertices.
 		int vertexCount = node->triangleCount * 3;
@@ -298,6 +307,8 @@ namespace dx12demo::core
 		const auto& vertexList = (*m_sourceVertices);
 
 		int vertexStoreIndex = 0;
+
+		CollectorBVData collectorBVData;
 
 		// Go through all the triangles in the vertex list.
 		for (int i = 0; i < m_triangleCount; i++)
@@ -310,22 +321,33 @@ namespace dx12demo::core
 				// Get the three vertices of this triangle from the vertex list.
 				vertices[vertexStoreIndex] = vertexList[vertexIndex];
 				indices[vertexStoreIndex] = vertexStoreIndex;
+				collectorBVData.Collect(vertices[vertexStoreIndex].m_position);
 				vertexStoreIndex++;
 
 				vertexIndex++;
 				vertices[vertexStoreIndex] = vertexList[vertexIndex];
 				indices[vertexStoreIndex] = vertexStoreIndex;
+				collectorBVData.Collect(vertices[vertexStoreIndex].m_position);
 				vertexStoreIndex++;
 
 				vertexIndex++;
 				vertices[vertexStoreIndex] = vertexList[vertexIndex];
 				indices[vertexStoreIndex] = vertexStoreIndex;
+				collectorBVData.Collect(vertices[vertexStoreIndex].m_position);
 				vertexStoreIndex++;
 			}
 		}
 
 		vertices.resize(vertexStoreIndex);
-		node->mesh = Mesh::CreateCustomMesh(commandList, vertices, indices, true);
+
+		MeshCreatorInfo info;
+		info.bv_min_pos = collectorBVData.GetMin();
+		info.bv_max_pos = collectorBVData.GetMax();
+		info.bv_pos = collectorBVData.GetCenter();
+		info.rhcoords = true;
+		info.scale = 1;
+
+		node->mesh = Mesh::CreateCustomMesh(commandList, vertices, indices, info);
 	}
 
 	template<typename VerticesContainer>
@@ -333,8 +355,41 @@ namespace dx12demo::core
 	{
 		for (auto& node : m_nodes)
 		{
-			if (node.mesh)
-				node.mesh->Render(commandList);
+			if (node->mesh)
+				node->mesh->Render(commandList);
 		}
 	}
+
+	template<typename VerticesContainer>
+	void QuadTree<VerticesContainer>::Render(CommandList& commandList, Frustum& frustum)
+	{		
+		RenderNode(commandList, frustum.GetFrustumPlanesF4(), m_rootNode);
+	}
+
+	template<typename VerticesContainer>
+	void QuadTree<VerticesContainer>::RenderNode(CommandList& commandList, const std::array<DirectX::XMFLOAT4, 6>& frustum_planes, QuadTreeNode*& node)
+	{
+		BSphere sphere;
+		sphere.r = node->width * 0.5f;
+		sphere.pos = { node->posX, 0.0f, node->posZ};
+
+		if (!Frustum::FrustumInSphere(sphere, frustum_planes))
+			return;
+
+		bool existChildNodes = false;
+		for (int i = 0; i < CHILD_IN_PARENT_NODE; i++)
+		{
+			if (node->childNodes[i] != 0)
+			{
+				existChildNodes = true;
+				RenderNode(commandList, frustum_planes, node->childNodes[i]);
+			}
+		}
+
+		if (existChildNodes)
+			return;
+
+		node->mesh->Render(commandList);
+	}
+
 }
