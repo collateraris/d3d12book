@@ -120,7 +120,7 @@ bool Terrain_Project::LoadContent()
     terraInfo.heightMapPath = "Assets/Textures/heightmap01.bmp";
     m_Scene.Generate(*commandList, terraInfo);
 
-    m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
+    //m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -426,7 +426,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
         commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
-        m_Scene.Render(*commandList, m_Frustum);
+        m_Scene.Render(*commandList);
 
         std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
         {
@@ -439,7 +439,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
 
-        m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
+        //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());

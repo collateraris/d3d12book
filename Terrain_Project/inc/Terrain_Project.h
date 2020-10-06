@@ -90,7 +90,7 @@ namespace dx12demo
         core::Texture m_TerrainTexture;
 
         core::Terrain m_Scene;
-        core::Scene m_Sponza;
+        //core::Scene m_Sponza;
         LightBuffer m_DirLight;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
