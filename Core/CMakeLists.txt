@@ -10,6 +10,7 @@ set( HEADER_FILES
     inc/CommandList.h
     inc/CommandQueue.h
     inc/ConstantBuffer.h
+	inc/d3dUtil.h
     inc/DescriptorAllocation.h
     inc/DescriptorAllocator.h
     inc/DescriptorAllocatorPage.h
@@ -58,6 +59,7 @@ set( SOURCE_FILES
     src/CommandQueue.cpp
     src/CommandList.cpp
     src/ConstantBuffer.cpp
+	src/d3dUtil.cpp
     src/DescriptorAllocation.cpp
     src/DescriptorAllocator.cpp
     src/DescriptorAllocatorPage.cpp

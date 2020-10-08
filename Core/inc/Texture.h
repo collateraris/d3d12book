@@ -69,6 +69,8 @@ namespace dx12demo::core
 
         bool CheckDSVSupport() const;
 
+        bool IsUAVCompatibleFormat();
+
         static bool IsUAVCompatibleFormat(DXGI_FORMAT format);
         static bool IsSRGBFormat(DXGI_FORMAT format);
         static bool IsBGRFormat(DXGI_FORMAT format);

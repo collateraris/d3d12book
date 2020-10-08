@@ -312,6 +312,11 @@ bool Texture::IsDepthFormat(DXGI_FORMAT format)
     }
 }
 
+bool Texture::IsUAVCompatibleFormat()
+{
+    return Texture::IsUAVCompatibleFormat(GetD3D12ResourceDesc().Format);
+}
+
 DXGI_FORMAT Texture::GetTypelessFormat(DXGI_FORMAT format)
 {
     DXGI_FORMAT typelessFormat = format;

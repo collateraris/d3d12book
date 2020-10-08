@@ -8,24 +8,49 @@
 #include <RenderTarget.h>
 #include <RootSignature.h>
 #include <Scene.h>
-#include <Terrain.h>
-#include <Frustum.h>
-
-#include <EnvironmentMapRenderPass.h>
 
 #include <DirectXMath.h>
 
+#include <StencilDemoUtils.h>
+
+#include <unordered_map>
+
 namespace dx12demo
 {
+    enum class EMeshes
+    {
+        rooms,
+        skull
+    };
+
+    enum class EMaterial
+    {
+        bricks,
+        checkertile,
+        icemirror,
+        skullMat,
+        shadowMat,
+    };
+
+    enum class ETexture
+    {
+        bricksTex,
+        checkboardTex,
+        iceTex,
+        white1x1Tex,
+    };
+
+    enum class ERenderLayer
+    {
+        Opaque = 0,
+        Mirrors,
+        Reflected,
+        Transparent,
+        Shadow,
+    };
+
 	class StencilDemo : public core::Game
 	{
-        struct LightBuffer
-        {
-            DirectX::XMFLOAT4 ambientColor;
-            DirectX::XMFLOAT4 diffuseColor;
-            DirectX::XMFLOAT3 lightDirection;
-        };
-
 	public:
 
         using super = Game;
@@ -74,28 +99,32 @@ namespace dx12demo
 
         void OnGUI();
 
+        void DrawRenderItem(core::CommandList& commandList, 
+            const std::vector<stdu::RenderItem>& items, const stdu::Mat& matricesWithWorldIndentity);
+
     private:
         
-        core::EnvironmentMapRenderPass m_envRenderPass;
-
-        float m_FoV;
-
         DirectX::XMMATRIX m_ModelMatrix;
         DirectX::XMMATRIX m_ViewMatrix;
         DirectX::XMMATRIX m_ProjectionMatrix;
 
         D3D12_RECT m_ScissorRect;
 
-        core::Texture m_TerrainTexture;
+        stdu::DirLight m_DirLight;
 
-        core::Terrain m_Scene;
-        //core::Scene m_Sponza;
-        LightBuffer m_DirLight;
-        // HDR Render target
+        std::unordered_map<ETexture, core::Texture> m_Textures;
+        std::unordered_map<EMaterial, stdu::MaterialConstant> m_Materials;
+        std::unordered_map<EMeshes, std::unique_ptr<core::Mesh>> m_Meshes;
+        std::unordered_map<ERenderLayer, std::vector<stdu::RenderItem>> m_RenderItems;
+        
         core::RenderTarget m_RenderTarget;
         core::RootSignature m_SceneRootSignature;
         core::RootSignature m_QuadRootSignature;
-        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_OpaqueScenePipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_TransparentScenePipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_MarkStencilMirrorsScenePipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_DrawStencilReflectionsScenePipelineState;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ShadowScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
         int m_Width;
@@ -112,8 +141,7 @@ namespace dx12demo
         };
         CameraData* m_pAlignedCameraData;
 
-        core::Frustum m_Frustum;
-
+        float m_FoV;
         // Camera controller
         float m_Forward;
         float m_Backward;

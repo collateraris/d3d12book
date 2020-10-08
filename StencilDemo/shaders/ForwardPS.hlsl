@@ -8,7 +8,7 @@ struct PixelShaderInput
 struct LightBuffer
 {
     float4 ambientColor;
-    float4 diffuseColor;
+    float4 strength;
     float3 lightDirection;
 };
 
@@ -16,12 +16,12 @@ ConstantBuffer<LightBuffer> dirLight : register(b1);
 
 Texture2D AmbientTexture  : register(t0);
 
-SamplerState LinearRepeatSampler : register(s0);
+SamplerState LinearAnisotropicWrap : register(s0);
 
 
 float4 main(PixelShaderInput IN) : SV_Target0
 {
-    float4 textureColor = AmbientTexture.Sample(LinearRepeatSampler, IN.TexCoord);
+    float4 textureColor = AmbientTexture.Sample(LinearAnisotropicWrap, IN.TexCoord);
     float4 color = dirLight.ambientColor;
 
     // Invert the light direction for calculations.
@@ -33,7 +33,7 @@ float4 main(PixelShaderInput IN) : SV_Target0
     if (lightIntensity > 0.0f)
     {
         // Determine the final diffuse color based on the diffuse color and the amount of light intensity.
-        color += (dirLight.diffuseColor * lightIntensity);
+        color += (dirLight.strength * lightIntensity);
     }
 
     // Saturate the final light color.

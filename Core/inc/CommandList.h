@@ -304,6 +304,8 @@ namespace dx12demo::core
 
         void ReleaseTrackedObjects();
 
+        void SetStencilRef(UINT StencilRef);
+
     protected:
 
         void TrackObject(const Microsoft::WRL::ComPtr<ID3D12Object>& object);
