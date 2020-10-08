@@ -30,7 +30,7 @@ void XM_CALLCONV ComputeMatrices(const XMMATRIX& model, const CXMMATRIX& view, c
 {
     mat.ModelMatrix = model;
     mat.ModelViewMatrix = model * view;
-    mat.InverseTransposeModelViewMatrix = XMMatrixTranspose(XMMatrixInverse(nullptr, mat.ModelViewMatrix));
+    mat.InverseTransposeModelViewMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixInverse(nullptr, mat.ModelViewMatrix));
     mat.ModelViewProjectionMatrix = mat.ModelViewMatrix * projection;
 }
 
@@ -67,17 +67,27 @@ StencilDemo::StencilDemo(const std::wstring& name, int width, int height, bool v
     m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
 
-    m_DirLight.ambientColor = { 0.25f, 0.25f, 0.35f, 1.0f };
-    m_DirLight.strength = { 0.6f, 0.6f, 0.6f, 1.f };
-    m_DirLight.lightDirection = { 0.57735f, -0.57735f, 0.57735f };
-
-    XMMATRIX R = XMMatrixReflect(m_MirrorPlane);
-    XMVECTOR lightDir = XMLoadFloat3(&m_DirLight.lightDirection);
-    XMVECTOR reflectedLightDir = XMVector3TransformNormal(lightDir, R);
-    m_ReflectionDirLight = m_DirLight;
-    XMStoreFloat3(&m_ReflectionDirLight.lightDirection, reflectedLightDir);
-
+    m_PassData.numDirLight = 3;
     m_PassData.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+
+    m_DirLight.resize(m_PassData.numDirLight);
+
+    m_DirLight[0].Strength = { 0.6f, 0.6f, 0.6f, 1.f };
+    m_DirLight[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
+    m_DirLight[1].Strength = { 0.3f, 0.3f, 0.3f, 1.f };
+    m_DirLight[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
+    m_DirLight[2].Strength = { 0.15f, 0.15f, 0.15f, 1.f };
+    m_DirLight[2].Direction = { 0.0f, -0.707f, -0.707f };
+
+    m_ReflectionDirLight = m_DirLight;
+
+    for (int i = 0; i < m_PassData.numDirLight; ++i)
+    {
+        XMMATRIX R = DirectX::XMMatrixReflect(m_MirrorPlane);
+        XMVECTOR lightDir = XMLoadFloat3(&m_DirLight[i].Direction);
+        XMVECTOR reflectedLightDir = XMVector3TransformNormal(lightDir, R);
+        XMStoreFloat3(&m_ReflectionDirLight[i].Direction, reflectedLightDir);
+    }
 }
 
 StencilDemo::~StencilDemo()
@@ -216,20 +226,24 @@ bool StencilDemo::LoadContent()
         skullRitem.mesh_index = static_cast<int16_t>(EMeshes::skull);
         skullRitem.bUseSubmesh = false;
         skullRitem.bUseCustomWoldMatrix = true;
-        XMMATRIX skullRotate = XMMatrixRotationY(0.5f * M_PI);
+        XMMATRIX skullRotate = DirectX::XMMatrixRotationY(0.5f * M_PI);
         XMFLOAT3 skullTranslation = { 0.0f, 1.0f, -5.0f };
-        XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
-        XMMATRIX skullOffset = XMMatrixTranslation(skullTranslation.x, skullTranslation.y, skullTranslation.z);
+        XMMATRIX skullScale = DirectX::XMMatrixScaling(0.45f, 0.45f, 0.45f);
+        XMMATRIX skullOffset = DirectX::XMMatrixTranslation(skullTranslation.x, skullTranslation.y, skullTranslation.z);
         skullRitem.worldMatrix = skullRotate * skullScale * skullOffset;
         m_RenderItems[ERenderLayer::Opaque].push_back(skullRitem);
 
         stdu::RenderItem reflectedSkullRitem = skullRitem;
-        XMMATRIX reflectionMatrix = XMMatrixReflect(m_MirrorPlane);
-        reflectedSkullRitem.worldMatrix = XMMatrixMultiply(skullRitem.worldMatrix, reflectionMatrix);
+        XMMATRIX reflectionMatrix = DirectX::XMMatrixReflect(m_MirrorPlane);
+        reflectedSkullRitem.worldMatrix = DirectX::XMMatrixMultiply(skullRitem.worldMatrix, reflectionMatrix);
         m_RenderItems[ERenderLayer::Reflected].push_back(reflectedSkullRitem);
 
         stdu::RenderItem shadowedSkullRitem = skullRitem;
         shadowedSkullRitem.mat_index = static_cast<int16_t>(EMaterial::shadowMat);
+        XMVECTOR toMainLight = -XMLoadFloat3(&m_DirLight[0].Direction);
+        XMMATRIX S = DirectX::XMMatrixShadow(m_ShadowPlane, toMainLight);
+        XMMATRIX shadowOffsetY = DirectX::XMMatrixTranslation(0.0f, 0.001f, 0.0f);
+        shadowedSkullRitem.worldMatrix =  skullRitem.worldMatrix * S * shadowOffsetY;
         m_RenderItems[ERenderLayer::Shadow].push_back(shadowedSkullRitem);
 
         stdu::RenderItem mirrorRitem;
@@ -259,10 +273,10 @@ bool StencilDemo::LoadContent()
 
         CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(stdu::SceneRootParameters::NumRootParameters)];
         rootParameters[static_cast<int>(stdu::SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
-        rootParameters[static_cast<int>(stdu::SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-        rootParameters[static_cast<int>(stdu::SceneRootParameters::Materials)].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-        rootParameters[static_cast<int>(stdu::SceneRootParameters::RenderPassData)].InitAsConstantBufferView(3, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        rootParameters[static_cast<int>(stdu::SceneRootParameters::DirLight)].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[static_cast<int>(stdu::SceneRootParameters::Materials)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[static_cast<int>(stdu::SceneRootParameters::RenderPassData)].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
         rootParameters[static_cast<int>(stdu::SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
         CD3DX12_STATIC_SAMPLER_DESC anisotropicWrapSampler(
@@ -522,7 +536,7 @@ void StencilDemo::OnUpdate(core::UpdateEventArgs& e)
         // Update the model matrix.
         float angle = static_cast<float>(e.TotalTime * 90.0);
         const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
-        m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
+        m_ModelMatrix = DirectX::XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
         m_ViewMatrix = m_Camera.get_ViewMatrix();
 
@@ -566,9 +580,9 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
     {
         commandList->SetPipelineState(m_OpaqueScenePipelineState);
         stdu::Mat matrices;
-        auto model = XMMatrixScaling(1.f, 1.f, 1.f);
+        auto model = DirectX::XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
+        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::RenderPassData), m_PassData);
         DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Opaque], matrices);
 
@@ -578,14 +592,17 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
         DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Mirrors], matrices);
 
         commandList->SetPipelineState(m_DrawStencilReflectionsScenePipelineState);
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_ReflectionDirLight);
+        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_ReflectionDirLight);
         DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Reflected], matrices);
 
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
+        commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
         commandList->SetStencilRef(0);
 
         commandList->SetPipelineState(m_TransparentScenePipelineState);
         DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Transparent], matrices);
+
+        commandList->SetPipelineState(m_ShadowScenePipelineState);
+        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Shadow], matrices);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());

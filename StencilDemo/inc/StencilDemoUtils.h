@@ -27,13 +27,13 @@ namespace dx12demo::stdu
     {
         XMFLOAT4 AmbientLight;
         XMFLOAT3 ViewPos;
+        int numDirLight;
     };
 
     struct __declspec(align(16)) DirLight
     {
-        XMFLOAT4 ambientColor;
-        XMFLOAT4 strength;
-        XMFLOAT3 lightDirection;
+        XMFLOAT4 Strength;
+        XMFLOAT3 Direction;
     };
 
     struct __declspec(align(16)) Mat

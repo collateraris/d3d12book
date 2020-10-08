@@ -7,12 +7,11 @@ struct PixelShaderInput
 
 struct DirLight
 {
-    float4 ambientColor;
     float4 strength;
     float3 lightDirection;
 };
 
-ConstantBuffer<DirLight> dirLightCB : register(b1);
+StructuredBuffer<DirLight> dirLightSB : register(t0);
 
 struct MaterialConstant
 {
@@ -21,17 +20,18 @@ struct MaterialConstant
     float Roughness;
 };
 
-ConstantBuffer<MaterialConstant> materialsCB : register(b2);
+ConstantBuffer<MaterialConstant> materialsCB : register(b1);
 
 struct RenderPassData
 {
     float4 AmbientLight;
     float3 ViewPos;
+    int numDirLight;
 };
 
-ConstantBuffer<RenderPassData> passDataCB : register(b3);
+ConstantBuffer<RenderPassData> passDataCB : register(b2);
 
-Texture2D AmbientTexture  : register(t0);
+Texture2D AmbientTexture  : register(t1);
 
 SamplerState LinearAnisotropicWrap : register(s0);
 
@@ -41,7 +41,7 @@ void SchlickFresnel(in float3 R0, in float3 normal, in float3 lightVec, out floa
 
 void BlinnPhong(in float3 lightStrength, in float3 lightVec, in float3 normal, float3 toEye, out float4 color);
 
-void ComputeDirectionalLight(in float3 normal, in float3 toEye, out float4 color);
+void ComputeDirectionalLight(in DirLight dirLight, in float3 normal, in float3 toEye, out float4 color);
 
 float4 main(PixelShaderInput IN) : SV_Target0
 {
@@ -51,12 +51,19 @@ float4 main(PixelShaderInput IN) : SV_Target0
     
     float3 posW = IN.PositionVS.xyz;
     float3 toEye = normalize(passDataCB.ViewPos - posW);
-    float4 directLight;
-    ComputeDirectionalLight(normal, toEye, directLight);
+
+    float4 dirColor = 0.f;
+    
+    for (int i = 0; i < passDataCB.numDirLight; ++i)
+    {
+        float4 directLight;
+        ComputeDirectionalLight(dirLightSB[i], normal, toEye, directLight);
+        dirColor += directLight;
+    }
 
     // Saturate the final light color.
     float4 ambient = diffuseAlbedo * passDataCB.AmbientLight;
-    float4 color = directLight + ambient;
+    float4 color = dirColor + ambient;
     // Multiply the texture pixel and the final light color to get the result.
     color.a = materialsCB.diffuseAlbedo.a;
     //return float4(0.5f, 0.5f, 0.5f, 1.f);
@@ -89,12 +96,12 @@ void BlinnPhong(in float3 lightStrength, in float3 lightVec, in float3 normal, f
     color = float4((materialsCB.diffuseAlbedo.rgb + specAlbedo) * lightStrength, 1.0);
 }
 
-void ComputeDirectionalLight(in float3 normal, in float3 toEye, out float4 color)
+void ComputeDirectionalLight(in DirLight dirLight, in float3 normal, in float3 toEye, out float4 color)
 {
     // The light vector aims opposite the direction the light rays travel.
-    float3 lightVec = -dirLightCB.lightDirection;
+    float3 lightVec = -dirLight.lightDirection;
     float3 lightIntensity = saturate(dot(lightVec, normal));
-    float3 lightStrength = dirLightCB.strength * lightIntensity;
+    float3 lightStrength = dirLight.strength * lightIntensity;
 
     BlinnPhong(lightStrength, lightVec, normal, toEye, color);
 }
