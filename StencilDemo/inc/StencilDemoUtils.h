@@ -18,8 +18,15 @@ namespace dx12demo::stdu
         MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
         DirLight,           // StructuredBuffer<PointLight> PointLights : register( b1 );
         Materials,          // ConstantBuffer<Mat> MatCB : register(b2);
+        RenderPassData,     // ConstantBuffer<Mat> MatCB : register(b2);
         AmbientTex,         // Texture2D AmbientTexture : register( t0 );
         NumRootParameters
+    };
+
+    struct __declspec(align(16)) RenderPassData
+    {
+        XMFLOAT4 AmbientLight;
+        XMFLOAT3 ViewPos;
     };
 
     struct __declspec(align(16)) DirLight

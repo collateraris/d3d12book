@@ -76,6 +76,8 @@ StencilDemo::StencilDemo(const std::wstring& name, int width, int height, bool v
     XMVECTOR reflectedLightDir = XMVector3TransformNormal(lightDir, R);
     m_ReflectionDirLight = m_DirLight;
     XMStoreFloat3(&m_ReflectionDirLight.lightDirection, reflectedLightDir);
+
+    m_PassData.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 }
 
 StencilDemo::~StencilDemo()
@@ -259,6 +261,7 @@ bool StencilDemo::LoadContent()
         rootParameters[static_cast<int>(stdu::SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
         rootParameters[static_cast<int>(stdu::SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
         rootParameters[static_cast<int>(stdu::SceneRootParameters::Materials)].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[static_cast<int>(stdu::SceneRootParameters::RenderPassData)].InitAsConstantBufferView(3, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
         CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[static_cast<int>(stdu::SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
@@ -511,6 +514,11 @@ void StencilDemo::OnUpdate(core::UpdateEventArgs& e)
     }
 
     {
+        auto& cameraPos = m_Camera.get_Translation();
+        XMStoreFloat3(&m_PassData.ViewPos, cameraPos);
+    }
+
+    {
         // Update the model matrix.
         float angle = static_cast<float>(e.TotalTime * 90.0);
         const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
@@ -561,6 +569,7 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
         auto model = XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::RenderPassData), m_PassData);
         DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Opaque], matrices);
 
         // Mark the visible mirror pixels in the stencil buffer with the value 1

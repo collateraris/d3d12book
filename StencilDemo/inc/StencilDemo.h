@@ -113,6 +113,8 @@ namespace dx12demo
         stdu::DirLight m_DirLight;
         stdu::DirLight m_ReflectionDirLight;
 
+        stdu::RenderPassData m_PassData;
+
         DirectX::XMVECTOR m_MirrorPlane = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // xy plane
 
         std::unordered_map<ETexture, core::Texture> m_Textures;
