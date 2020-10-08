@@ -21,19 +21,12 @@ enum class SceneRootParameters
     NumRootParameters
 };
 
-
 struct __declspec(align(16)) Mat
 {
     XMMATRIX ModelMatrix;
     XMMATRIX ModelViewMatrix;
     XMMATRIX InverseTransposeModelViewMatrix;
     XMMATRIX ModelViewProjectionMatrix;
-};
-
-struct __declspec(align(16)) LightProperties
-{
-    uint32_t NumPointLights;
-    uint32_t NumSpotLights;
 };
 
 void XM_CALLCONV ComputeMatrices(const XMMATRIX& model, const CXMMATRIX& view, const CXMMATRIX& projection, Mat& mat)

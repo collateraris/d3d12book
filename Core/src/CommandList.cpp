@@ -471,7 +471,8 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
             static_cast<uint32_t>(subresources.size()),
             subresources.data());
 
-        if (subresources.size() < textureResource->GetDesc().MipLevels)
+        if (subresources.size() < textureResource->GetDesc().MipLevels
+            && texture.IsUAVCompatibleFormat())
         {
             GenerateMips(texture);
         }
@@ -1106,4 +1107,9 @@ void CommandList::PanoToCubemap(Texture& cubemapTexture, const Texture& panoText
     {
         CopyResource(cubemapTexture, stagingTexture);
     }
+}
+
+void CommandList::SetStencilRef(UINT StencilRef)
+{
+    m_d3d12CommandList->OMSetStencilRef(StencilRef);
 }

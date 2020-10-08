@@ -12,6 +12,7 @@
 
 #include <memory> // For std::unique_ptr
 #include <vector>
+#include <unordered_map>
 
 namespace dx12demo::core
 {
@@ -118,11 +119,19 @@ namespace dx12demo::core
         bool rhcoords = false;
     };
 
+    struct SubMesh
+    {
+        UINT IndexCount = 0;
+        UINT StartIndexLocation = 0;
+        INT BaseVertexLocation = 0;
+    };
+
     class Mesh
     {
     public:
 
         void Render(CommandList& commandList, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
+        void RenderSubMesh(CommandList& commandList, uint16_t indexSubMesh, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
 
         static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexExtendedCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info);
         static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info);
@@ -136,6 +145,8 @@ namespace dx12demo::core
 
         const BSphere& GetBSphere() const;
         const BAABB& GetBAABB() const;
+
+        void PushSubMesh(uint16_t index, SubMesh& submesh);
 
     protected:
 
@@ -155,9 +166,12 @@ namespace dx12demo::core
         VertexBuffer m_VertexBuffer;
         IndexBuffer m_IndexBuffer;
 
+        std::unordered_map<uint16_t, SubMesh> m_SubMeshes;
+
         BSphere m_bsphere;
         BAABB m_baabb;
 
         UINT m_IndexCount;
+
     };
 }

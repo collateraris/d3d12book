@@ -31,7 +31,7 @@ Mesh::~Mesh()
     // Allocated resources will be cleaned automatically when the pointers go out of scope.
 }
 
-void Mesh::Render(CommandList& commandList, uint32_t instanceCount, uint32_t firstInstance)
+void Mesh::Render(CommandList& commandList, uint32_t instanceCount/* = 1*/, uint32_t firstInstance/* = 0*/)
 {
     commandList.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList.SetVertexBuffer(0, m_VertexBuffer);
@@ -44,6 +44,23 @@ void Mesh::Render(CommandList& commandList, uint32_t instanceCount, uint32_t fir
     {
         commandList.Draw(m_VertexBuffer.GetNumVertices(), instanceCount, 0, firstInstance);
     }
+}
+
+void Mesh::RenderSubMesh(CommandList& commandList, uint16_t indexSubMesh, uint32_t instanceCount/* = 1*/, uint32_t firstInstance/* = 0*/)
+{
+    commandList.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    commandList.SetVertexBuffer(0, m_VertexBuffer);
+    commandList.SetIndexBuffer(m_IndexBuffer);
+    
+    auto& submesh = m_SubMeshes[indexSubMesh];
+    commandList.DrawIndexed(submesh.IndexCount, instanceCount, submesh.StartIndexLocation, submesh.BaseVertexLocation, firstInstance);
+}
+
+void Mesh::PushSubMesh(uint16_t index, SubMesh& submesh)
+{
+    assert(m_SubMeshes.find(index) == m_SubMeshes.end());
+
+    m_SubMeshes[index] = submesh;
 }
 
 void Mesh::SetBSphere(BSphere& sphere)

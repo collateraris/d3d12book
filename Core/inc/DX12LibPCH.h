@@ -48,6 +48,7 @@ using namespace DirectX;
 #include <unordered_map>
 #include <thread>
 #include <vector>
+#define _USE_MATH_DEFINES
 #include <math.h>
 
 namespace fs = std::filesystem;
