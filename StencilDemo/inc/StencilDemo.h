@@ -111,6 +111,9 @@ namespace dx12demo
         D3D12_RECT m_ScissorRect;
 
         stdu::DirLight m_DirLight;
+        stdu::DirLight m_ReflectionDirLight;
+
+        DirectX::XMVECTOR m_MirrorPlane = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // xy plane
 
         std::unordered_map<ETexture, core::Texture> m_Textures;
         std::unordered_map<EMaterial, stdu::MaterialConstant> m_Materials;

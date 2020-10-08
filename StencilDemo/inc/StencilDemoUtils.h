@@ -17,6 +17,7 @@ namespace dx12demo::stdu
     {
         MatricesCB,         // ConstantBuffer<Mat> MatCB : register(b0);
         DirLight,           // StructuredBuffer<PointLight> PointLights : register( b1 );
+        Materials,          // ConstantBuffer<Mat> MatCB : register(b2);
         AmbientTex,         // Texture2D AmbientTexture : register( t0 );
         NumRootParameters
     };
@@ -34,12 +35,6 @@ namespace dx12demo::stdu
         XMMATRIX ModelViewMatrix;
         XMMATRIX InverseTransposeModelViewMatrix;
         XMMATRIX ModelViewProjectionMatrix;
-    };
-
-    struct __declspec(align(16)) LightProperties
-    {
-        uint32_t NumPointLights;
-        uint32_t NumSpotLights;
     };
 
     struct RenderItem

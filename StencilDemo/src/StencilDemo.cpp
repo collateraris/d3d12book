@@ -70,6 +70,12 @@ StencilDemo::StencilDemo(const std::wstring& name, int width, int height, bool v
     m_DirLight.ambientColor = { 0.25f, 0.25f, 0.35f, 1.0f };
     m_DirLight.strength = { 0.6f, 0.6f, 0.6f, 1.f };
     m_DirLight.lightDirection = { 0.57735f, -0.57735f, 0.57735f };
+
+    XMMATRIX R = XMMatrixReflect(m_MirrorPlane);
+    XMVECTOR lightDir = XMLoadFloat3(&m_DirLight.lightDirection);
+    XMVECTOR reflectedLightDir = XMVector3TransformNormal(lightDir, R);
+    m_ReflectionDirLight = m_DirLight;
+    XMStoreFloat3(&m_ReflectionDirLight.lightDirection, reflectedLightDir);
 }
 
 StencilDemo::~StencilDemo()
@@ -85,11 +91,11 @@ bool StencilDemo::LoadContent()
     auto commandList = commandQueue->GetCommandList();
 
     // Create an HDR intermediate render target.
-    DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D32_FLOAT;
+    DXGI_FORMAT BackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
     // Create an off-screen render target with a single color buffer and a depth buffer.
-    auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D(HDRFormat, m_Width, m_Height);
+    auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D(BackBufferFormat, m_Width, m_Height);
     colorDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
     D3D12_CLEAR_VALUE colorClearValue;
@@ -155,7 +161,7 @@ bool StencilDemo::LoadContent()
 
         m_Materials[EMaterial::icemirror] = stdu::MaterialConstant();
         auto& icemirror = m_Materials[EMaterial::icemirror];
-        icemirror.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+        icemirror.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.3f);
         icemirror.freshnelR0 = XMFLOAT3(0.1f, 0.1f, 0.1f);
         icemirror.Roughness = 0.5f;
 
@@ -208,15 +214,15 @@ bool StencilDemo::LoadContent()
         skullRitem.mesh_index = static_cast<int16_t>(EMeshes::skull);
         skullRitem.bUseSubmesh = false;
         skullRitem.bUseCustomWoldMatrix = true;
+        XMMATRIX skullRotate = XMMatrixRotationY(0.5f * M_PI);
         XMFLOAT3 skullTranslation = { 0.0f, 1.0f, -5.0f };
         XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
-        skullRitem.worldMatrix = XMMatrixTranslation(skullTranslation.x, skullTranslation.y, skullTranslation.z);
-        skullRitem.worldMatrix = XMMatrixMultiply(skullRitem.worldMatrix, skullScale);
+        XMMATRIX skullOffset = XMMatrixTranslation(skullTranslation.x, skullTranslation.y, skullTranslation.z);
+        skullRitem.worldMatrix = skullRotate * skullScale * skullOffset;
         m_RenderItems[ERenderLayer::Opaque].push_back(skullRitem);
 
         stdu::RenderItem reflectedSkullRitem = skullRitem;
-        XMVECTOR mirrorPlane = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // xy plane
-        XMMATRIX reflectionMatrix = XMMatrixReflect(mirrorPlane);
+        XMMATRIX reflectionMatrix = XMMatrixReflect(m_MirrorPlane);
         reflectedSkullRitem.worldMatrix = XMMatrixMultiply(skullRitem.worldMatrix, reflectionMatrix);
         m_RenderItems[ERenderLayer::Reflected].push_back(reflectedSkullRitem);
 
@@ -229,7 +235,7 @@ bool StencilDemo::LoadContent()
         mirrorRitem.tex_index = static_cast<int16_t>(ETexture::iceTex);
         mirrorRitem.mesh_index = static_cast<int16_t>(EMeshes::rooms);
         mirrorRitem.bUseSubmesh = true;
-        mirrorRitem.submesh_index = static_cast<int16_t>(stdu::ERoomPart::wall);
+        mirrorRitem.submesh_index = static_cast<int16_t>(stdu::ERoomPart::mirror);
         m_RenderItems[ERenderLayer::Mirrors].push_back(mirrorRitem);
         m_RenderItems[ERenderLayer::Transparent].push_back(mirrorRitem);
     }
@@ -252,6 +258,7 @@ bool StencilDemo::LoadContent()
         CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(stdu::SceneRootParameters::NumRootParameters)];
         rootParameters[static_cast<int>(stdu::SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
         rootParameters[static_cast<int>(stdu::SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[static_cast<int>(stdu::SceneRootParameters::Materials)].InitAsConstantBufferView(2, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
         CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[static_cast<int>(stdu::SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
@@ -303,7 +310,7 @@ bool StencilDemo::LoadContent()
         transparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
         transparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
         transparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
-        transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;   
+        transparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
         transparentPsoStream.BlendState.RenderTarget[0] = transparencyBlendDesc;
 
         ThrowIfFailed(device->CreateGraphicsPipelineState(&transparentPsoStream, IID_PPV_ARGS(&m_TransparentScenePipelineState)));
@@ -539,7 +546,7 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
         FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
 
         commandList->ClearTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::Color0), clearColor);
-        commandList->ClearDepthStencilTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil), D3D12_CLEAR_FLAG_DEPTH);
+        commandList->ClearDepthStencilTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL);
     }
 
     commandList->SetRenderTarget(m_RenderTarget);
@@ -553,10 +560,23 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
         stdu::Mat matrices;
         auto model = XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
+        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Opaque], matrices);
+
+        // Mark the visible mirror pixels in the stencil buffer with the value 1
+        commandList->SetStencilRef(1);
+        commandList->SetPipelineState(m_MarkStencilMirrorsScenePipelineState);
+        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Mirrors], matrices);
+
+        commandList->SetPipelineState(m_DrawStencilReflectionsScenePipelineState);
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_ReflectionDirLight);
+        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Reflected], matrices);
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
-        
-        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Opaque], matrices);
+        commandList->SetStencilRef(0);
+
+        commandList->SetPipelineState(m_TransparentScenePipelineState);
+        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Transparent], matrices);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -593,6 +613,9 @@ void StencilDemo::DrawRenderItem(core::CommandList& commandList,
 
         auto& ambientTex = m_Textures[static_cast<ETexture>(item.tex_index)];
         commandList.SetShaderResourceView(static_cast<int>(stdu::SceneRootParameters::AmbientTex), 0, ambientTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+        auto& materials = m_Materials[static_cast<EMaterial>(item.mat_index)];
+        commandList.SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::Materials), materials);
 
         auto& mesh = m_Meshes[static_cast<EMeshes>(item.mesh_index)];
         if (item.bUseSubmesh)
