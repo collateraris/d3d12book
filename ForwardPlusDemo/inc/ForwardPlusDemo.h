@@ -10,6 +10,8 @@
 #include <Scene.h>
 #include <Terrain.h>
 #include <Frustum.h>
+#include <Light.h>
+#include <config_sys/Config.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -75,8 +77,12 @@ namespace dx12demo
         void OnGUI();
 
     private:
+
+        std::unique_ptr<core::Config> m_Config;
         
         core::EnvironmentMapRenderPass m_envRenderPass;
+
+        std::vector<Light> m_Lights;
 
         float m_FoV;
 

@@ -24,6 +24,11 @@ namespace dx12demo::core
 
             std::string GetName() const { return root->Name(); }
 
+            const char* GetText() const { return root->GetText(); }
+
+            template<typename T>
+            T GetValueText();
+
             XPath GetPath(const std::string& path) const { return XPath(GetElement(root, path)); }
 
             template<typename... Targs>
@@ -31,9 +36,6 @@ namespace dx12demo::core
 
             template<typename T>
             T GetAttribute(const std::string& name) const;
-
-            template<>
-            float GetAttribute<float>(const std::string& name) const;
 
             template<typename T>
             void SetAttribute(const std::string& name, const T& val) const;
@@ -53,31 +55,52 @@ namespace dx12demo::core
             {
                 return GetElement(GetElement(elem, path), args...);
             }
+
+            template<typename T>
+            T TextValue(const std::string& text);
+
+            template<>
+            float TextValue(const std::string& text);
+
+            template<>
+            std::wstring TextValue(const std::string& text);
         };
 
         // ------------------------------------------------------------------ //
 
         template<typename T>
-        T XPath::GetAttribute(const std::string& name) const
+        T XPath::TextValue(const std::string& text)
         {
-
-            const txml::XMLAttribute* attr = root->FindAttribute(name.c_str());
-            std::string text = "";
-
-            assert(attr != nullptr);
-            if (attr != nullptr)
-                text = attr->Value();
-
             std::stringstream ss(text);
             T val;
             ss >> val;
             return val;
-        };
+        }
 
         template<>
-        float XPath::GetAttribute<float>(const std::string& name) const
+        float XPath::TextValue(const std::string& text)
         {
+            float val = ::atof(text.c_str());
+            return val;
+        }
 
+        template<>
+        std::wstring XPath::TextValue(const std::string& text)
+        {
+            std::wstring val(text.cbegin(), text.cend());
+            return val;
+        }
+
+        template<typename T>
+        T XPath::GetValueText()
+        {
+            std::string text = root->GetText();
+            return TextValue<T>(text);
+        }
+
+        template<typename T>
+        T XPath::GetAttribute(const std::string& name) const
+        {
             const txml::XMLAttribute* attr = root->FindAttribute(name.c_str());
             std::string text = "";
 
@@ -85,9 +108,9 @@ namespace dx12demo::core
             if (attr != nullptr)
                 text = attr->Value();
 
-            float val = ::atof(text.c_str());
-            return val;
+            return TextValue<T>(text);
         };
+
 
         template<typename T>
         void XPath::SetAttribute(const std::string& name, const T& val) const

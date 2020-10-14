@@ -6,6 +6,8 @@
 #include <Helpers.h>
 #include <Window.h>
 #include <Material.h>
+#include <StringConstant.h>
+#include <ForwardPlusDemoUtils.h>
 
 using namespace dx12demo;
 using namespace DirectX;
@@ -69,8 +71,11 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     , m_Height(0)
     , m_RenderScale(1.0f)
 {
+    
+    m_Config = std::make_unique<core::Config>(ConfigPathStr);
+
     XMVECTOR cameraPos = XMVectorSet(50, 2, -7, 1);
-    XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);
+    XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);   
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
     m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
@@ -88,6 +93,7 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
     m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
     m_DirLight.lightDirection = { -0.5f, -1.0f, 0.0f };
+    
 }
 
 ForwardPlusDemo::~ForwardPlusDemo()
@@ -102,7 +108,8 @@ bool ForwardPlusDemo::LoadContent()
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
 
-    m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
+    auto scenePath = m_Config->GetRoot().GetPath(SceneFileNameStr).GetValueText<std::wstring>();
+    m_Sponza.LoadFromFile(commandList, scenePath, true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -144,6 +151,10 @@ bool ForwardPlusDemo::LoadContent()
     if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
     {
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+    }
+
+    {
+        fpdu::CollectLightsFromConfig(*m_Config, m_Lights);
     }
 
     {

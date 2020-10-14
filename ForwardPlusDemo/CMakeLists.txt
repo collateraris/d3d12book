@@ -1,7 +1,13 @@
 cmake_minimum_required( VERSION 3.18.3 ) 
 
+file(COPY assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Debug/)
+file(COPY assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Release/)
+
 set( HEADER_FILES 
     inc/ForwardPlusDemo.h
+	inc/Light.h
+	inc/StringConstant.h
+	inc/ForwardPlusDemoUtils.h
 )
 
 set( SRC_FILES
@@ -74,4 +80,5 @@ target_link_libraries( ForwardPlusDemo
 target_compile_options( ForwardPlusDemo
     PRIVATE $<$<CONFIG:Debug>:/ZI>
 )
+
 
