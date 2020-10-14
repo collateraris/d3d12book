@@ -33,7 +33,7 @@ void Frustum::ConstructFrustum(float farPlanePar, const DirectX::XMMATRIX& proje
 	DirectX::XMMATRIX projMatrix = DirectX::XMLoadFloat4x4(&fProj);
 
 	// Create the frustum matrix from the view matrix and updated projection matrix.
-	DirectX::XMMATRIX matrix = DirectX::XMMatrixMultiply(viewMatrix, projMatrix);
+	DirectX::XMMATRIX matrix = DirectX::XMMatrixMultiply(projMatrix, viewMatrix);
 
 	DirectX::XMFLOAT4X4 fMatrix;
 	DirectX::XMStoreFloat4x4(&fMatrix, matrix);
