@@ -343,7 +343,6 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
 
         float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
         m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
-        //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
     }
     {
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
@@ -358,16 +357,13 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
         m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
         m_ViewMatrix = m_Camera.get_ViewMatrix();
-        //m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
 
         // Update the projection matrix.
         m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
-        //m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
     }
 
     {
         m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera.get_ViewMatrix(), m_Camera.get_ProjectionMatrix());
-        //m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_CameraEuler.get_ViewMatrix(), m_CameraEuler.get_ProjectionMatrix());
     }
 }
 
@@ -403,7 +399,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        //m_envRenderPass.OnRender(*commandList, e);
+        m_envRenderPass.OnRender(*commandList, e);
     }
 
     commandList->SetPipelineState(m_ScenePipelineState);
@@ -419,7 +415,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
         commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
-        m_Scene.Render(*commandList);
+        m_Scene.Render(*commandList, m_Frustum);
 
         std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
         {

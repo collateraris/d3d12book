@@ -37,5 +37,5 @@ add_subdirectory( Terrain_Project )
 add_subdirectory( StencilDemo )
 
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT StencilDemo
+    VS_STARTUP_PROJECT Terrain_Project
 )
