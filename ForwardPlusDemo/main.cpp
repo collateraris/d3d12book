@@ -3,7 +3,7 @@
 #include <Shlwapi.h>
 
 #include <Application.h>
-#include <Terrain_Project.h>
+#include <ForwardPlusDemo.h>
 
 #include <dxgidebug.h>
 
@@ -31,7 +31,7 @@ int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdL
 
     auto& app = dx12demo::core::Application::Create(hInstance);
     {
-        std::shared_ptr<dx12demo::ForwardPlusDemo> demo = std::make_shared<dx12demo::ForwardPlusDemo>(L"Learning DirectX 12 - Terrain_Project", 1280, 720);
+        std::shared_ptr<dx12demo::ForwardPlusDemo> demo = std::make_shared<dx12demo::ForwardPlusDemo>(L"DirectX 12 - ForwardPlusDemo", 1600, 1200);
         retCode = app.Run(demo);
     }
     dx12demo::core::Application::Destroy();

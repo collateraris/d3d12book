@@ -1,4 +1,4 @@
-#include <Terrain_Project.h>
+#include <ForwardPlusDemo.h>
 
 #include <Application.h>
 #include <CommandQueue.h>
@@ -84,13 +84,6 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
     m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
-    /*
-    m_CameraEuler.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_CameraEuler.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
-
-    m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
-    m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
-    */
 
     m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
     m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -109,11 +102,7 @@ bool ForwardPlusDemo::LoadContent()
     auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
     auto commandList = commandQueue->GetCommandList();
 
-    core::TerrainInfo terraInfo;
-    terraInfo.heightMapPath = "Assets/Textures/heightmap01.bmp";
-    m_Scene.Generate(*commandList, terraInfo);
-
-    //m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
+    m_Sponza.LoadFromFile(commandList, L"Assets/models/crytek-sponza/sponza_nobanner.obj", true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -173,8 +162,6 @@ bool ForwardPlusDemo::LoadContent()
 
     // Create a root signature for the forward shading (scene) pipeline.
     {
-        commandList->LoadTextureFromFile(m_TerrainTexture, L"Assets/Textures/terrain1.dds");
-
         // Load the  shaders.
         ComPtr<ID3DBlob> vs;
         ComPtr<ID3DBlob> ps;
@@ -406,16 +393,13 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
     {
-
         Mat matrices;
-        auto model = XMMatrixScaling(1.f, 1.f, 1.f);
+
+        auto model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
-        commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        
-        m_Scene.Render(*commandList, m_Frustum);
 
         std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
         {
@@ -423,12 +407,9 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
                 commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         };
 
-        model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
-        ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
-
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
 
-        //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
+       m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -468,9 +449,9 @@ void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
             break;
         case KeyCode::R:
             // Reset camera transform
-            //m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
-            //m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
-            //m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
+            m_Camera.set_Translation(m_pAlignedCameraData->m_InitialCamPos);
+            m_Camera.set_Rotation(m_pAlignedCameraData->m_InitialCamRot);
+            m_Camera.set_FoV(m_pAlignedCameraData->m_InitialFov);
             m_Pitch = 0.0f;
             m_Yaw = 0.0f;
             break;
@@ -504,7 +485,6 @@ void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
             break;
         }
 
-    //m_CameraEuler.KeyProcessing(e);
 }
 
 void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
@@ -540,8 +520,6 @@ void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
             m_Shift = false;
             break;
         } 
-
-    //m_CameraEuler.KeyProcessing(e);
 }
 
 void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
@@ -559,7 +537,6 @@ void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
 
             m_Yaw -= e.RelX * mouseSpeed;
         }
-    //m_CameraEuler.MouseProcessing(e);
 }
 
 void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
@@ -572,9 +549,6 @@ void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
         fov = std::clamp(fov, 12.0f, 90.0f);
 
         m_Camera.set_FoV(fov);
-
-        //m_CameraEuler.ScrollProcessing(e);
-        //auto fov = m_CameraEuler.get_FoV();
 
         char buffer[256];
         sprintf_s(buffer, "FoV: %f\n", fov);

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Camera.h>
-#include <CameraEuler.h>
 #include <Game.h>
 #include <Window.h>
 #include <Mesh.h>
@@ -87,10 +86,7 @@ namespace dx12demo
 
         D3D12_RECT m_ScissorRect;
 
-        core::Texture m_TerrainTexture;
-
-        core::Terrain m_Scene;
-        //core::Scene m_Sponza;
+        core::Scene m_Sponza;
         LightBuffer m_DirLight;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
@@ -104,7 +100,6 @@ namespace dx12demo
         float m_RenderScale;
 
         core::Camera m_Camera;
-        //CameraEuler m_CameraEuler;
         struct alignas(16) CameraData
         {
             DirectX::XMVECTOR m_InitialCamPos;
@@ -131,7 +126,7 @@ namespace dx12demo
         // Set to true if the Shift key is pressed.
         bool m_Shift;
 
-        const float m_CameraStep = 1.f;
+        const float m_CameraStep = 5.f;
 
         double m_FPS = 0.;
 

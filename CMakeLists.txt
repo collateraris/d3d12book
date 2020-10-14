@@ -35,7 +35,8 @@ add_subdirectory( Lesson1_cube3D )
 add_subdirectory( Lesson2_forward_shading )
 add_subdirectory( Terrain_Project )
 add_subdirectory( StencilDemo )
+add_subdirectory( ForwardPlusDemo )
 
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT Terrain_Project
+    VS_STARTUP_PROJECT ForwardPlusDemo
 )

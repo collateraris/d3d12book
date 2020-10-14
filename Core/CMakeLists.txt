@@ -109,6 +109,24 @@ set( IMGUI_SOURCE
     src/imgui_impl_win32.cpp
 )
 
+source_group( "Source Files\\ImGUI" FILES ${IMGUI_SOURCE} )
+
+set( CONFIG_SYS_HEADERS
+    inc/config_sys/Config.h
+    inc/config_sys/XPath.h 
+	inc/config_sys/tinyxml2.h
+)
+
+source_group( "Header Files\\ConfigSys" FILES ${CONFIG_SYS_HEADERS} )
+
+set( CONFIG_SYS_SOURCE
+    src/config_sys/Config.cpp
+    src/config_sys/XPath.cpp
+	src/config_sys/tinyxml2.cpp
+)
+
+source_group( "Source Files\\ConfigSys" FILES ${CONFIG_SYS_SOURCE} )
+
 set( SHADER_FILES
     shaders/GenerateMips_CS.hlsl
 	shaders/PanoToCubemap_CS.hlsl
@@ -122,7 +140,8 @@ add_library( Core STATIC
     ${HEADER_FILES}
     ${SOURCE_FILES}
 	${SHADER_FILES}
-    ${IMGUI_HEADERS} ${IMGUI_SOURCE}	
+    ${IMGUI_HEADERS} ${IMGUI_SOURCE}
+	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}	
 )
 
 # Enable C++20 compiler features.
