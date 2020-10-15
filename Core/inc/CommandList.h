@@ -155,6 +155,17 @@ namespace dx12demo::core
         }
 
         /**
+         * Set a dynamic constant buffer data to an inline descriptor in the root
+         * signature.
+         */
+        void SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, size_t sizeInBytes, const void* bufferData);
+        template<typename T>
+        void SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, const T& data)
+        {
+            SetComputeDynamicConstantBuffer(rootParameterIndex, sizeof(T), &data);
+        }
+
+        /**
          * Set a set of 32-bit constants on the graphics pipeline.
          */
         void SetGraphics32BitConstants(uint32_t rootParameterIndex, uint32_t numConstants, const void* constants);
@@ -253,6 +264,9 @@ namespace dx12demo::core
             UINT numSubresources = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
             const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav = nullptr
         );
+
+        void SetComputeRootUnorderedAccessView(uint32_t rootParameterIndex, Resource& resource);
+
 
         /**
          * Set the render targets for the graphics rendering pipeline.

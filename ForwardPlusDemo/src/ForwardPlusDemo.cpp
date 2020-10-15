@@ -109,7 +109,7 @@ bool ForwardPlusDemo::LoadContent()
     auto commandList = commandQueue->GetCommandList();
 
     auto scenePath = m_Config->GetRoot().GetPath(SceneFileNameStr).GetValueText<std::wstring>();
-    m_Sponza.LoadFromFile(commandList, scenePath, true);
+    //m_Sponza.LoadFromFile(commandList, scenePath, true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -155,6 +155,22 @@ bool ForwardPlusDemo::LoadContent()
 
     {
         fpdu::CollectLightsFromConfig(*m_Config, m_Lights);
+    }
+
+    {
+        float swidth = GetClientWidth();
+        float sheight = GetClientHeight();
+
+        core::ScreenToViewParams params;
+        params.m_InverseProjectionMatrix = m_Camera.get_InverseProjectionMatrix();
+        params.m_ScreenDimensions = { swidth, sheight };
+
+        core::DispatchParams dispatchPar;
+        dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
+        const auto& numThreads = dispatchPar.m_NumThreads;
+        dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
+
+        m_ComputeGridFrustums.Compute(params, dispatchPar);
     }
 
     {
@@ -296,7 +312,6 @@ void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
         float fov = m_Camera.get_FoV();
         float aspectRatio = m_Width / (float)m_Height;
         m_Camera.set_Projection(fov, aspectRatio, 0.1f, 100.0f);
-        //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
 
         RescaleRenderTarget(m_RenderScale);
     }
@@ -324,9 +339,6 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
         totalTime = 0.0;
     }
 
-    {
-        //m_CameraEuler.Movement(e.ElapsedTime);
-    }
     {
         // Update the camera.
         float speedMultipler = (m_Shift ? 16.0f : 4.0f);

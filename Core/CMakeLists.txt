@@ -21,6 +21,8 @@ set( HEADER_FILES
     inc/Events.h
     inc/Game.h
     inc/GenerateMipsPSO.h
+	inc/GeometryPrimitive.h
+	inc/GridViewFrustums.h
     inc/GUI.h
     inc/Helpers.h
     inc/HighResolutionClock.h
@@ -39,6 +41,7 @@ set( HEADER_FILES
     inc/RootSignature.h
     inc/Scene.h
     inc/SceneNode.h
+	inc/ShaderCommonInclude.h
     inc/StructuredBuffer.h
 	inc/Terrain.h
     inc/Texture.h
@@ -70,6 +73,7 @@ set( SOURCE_FILES
 	src/QuadTree.cpp
     src/Game.cpp
     src/GenerateMipsPSO.cpp
+	src/GridViewFrustums.cpp
     src/GUI.cpp
     src/HighResolutionClock.cpp
     src/IndexBuffer.cpp
@@ -134,12 +138,18 @@ set( SHADER_FILES
     shaders/ImGUI_PS.hlsl
 	shaders/Skybox_VS.hlsl
     shaders/Skybox_PS.hlsl
+	shaders/GridViewFrustums_CS.hlsl
+)
+
+set( SHADER_COMMON_FILES
+	shaders/CommonInclude.hlsl
 )
 
 add_library( Core STATIC
     ${HEADER_FILES}
     ${SOURCE_FILES}
 	${SHADER_FILES}
+	${SHADER_COMMON_FILES}
     ${IMGUI_HEADERS} ${IMGUI_SOURCE}
 	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}	
 )
@@ -149,7 +159,7 @@ target_compile_features( Core
 	PUBLIC cxx_std_20
 )
 
-source_group( "shaders" FILES ${SHADER_FILES} )
+source_group( "shaders" FILES ${SHADER_FILES} ${SHADER_COMMON_FILES})
 
 target_include_directories( Core
     PUBLIC inc
@@ -164,9 +174,19 @@ target_link_libraries( Core
     PUBLIC dxguid.lib
 )
 
-set_source_files_properties( ${SHADER_FILES}
+set_source_files_properties( ${SHADER_FILES} ${SHADER_COMMON_FILES}
     PROPERTIES
         VS_SHADER_MODEL 5.1
+        VS_SHADER_OUTPUT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/%(Filename).h"
+        VS_SHADER_DISABLE_OPTIMIZATIONS $<$<CONFIG:Debug>:ON>
+        VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
+)
+
+set_source_files_properties( ${SHADER_COMMON_FILES}
+    PROPERTIES
+        VS_SHADER_MODEL 5.1
+		VS_SHADER_TYPE Compute
+		VS_SHADER_ENTRYPOINT "main_fake"
         VS_SHADER_OUTPUT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/%(Filename).h"
         VS_SHADER_DISABLE_OPTIMIZATIONS $<$<CONFIG:Debug>:ON>
         VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
@@ -182,6 +202,12 @@ set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/GridViewFrustums_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_GridViewFrustums_CS
 )
 
 set_source_files_properties( shaders/ImGUI_VS.hlsl

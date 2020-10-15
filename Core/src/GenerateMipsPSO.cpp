@@ -78,3 +78,8 @@ GenerateMipsPSO::GenerateMipsPSO()
         );
     }
 }
+
+GenerateMipsPSO::~GenerateMipsPSO()
+{
+
+}

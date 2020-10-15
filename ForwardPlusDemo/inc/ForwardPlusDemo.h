@@ -12,6 +12,7 @@
 #include <Frustum.h>
 #include <Light.h>
 #include <config_sys/Config.h>
+#include <GridViewFrustums.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -100,6 +101,9 @@ namespace dx12demo
         core::RootSignature m_QuadRootSignature;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
+
+        uint16_t m_LightCullingBlockSize = 16;
+        core::GridViewFrustum m_ComputeGridFrustums;
 
         int m_Width;
         int m_Height;
