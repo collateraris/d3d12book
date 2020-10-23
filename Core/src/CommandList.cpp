@@ -408,11 +408,13 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         }
         else
         {
+            ThrowIfFailed(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
             ThrowIfFailed(LoadFromWICFile(
                 fileName.c_str(),
                 WIC_FLAGS_FORCE_RGB,
                 &metadata,
                 scratchImage));
+            CoUninitialize();
         }
 
         D3D12_RESOURCE_DESC textureDesc = {};
@@ -922,6 +924,16 @@ void CommandList::SetGraphicsDynamicStructuredBuffer(uint32_t slot, size_t numEl
     memcpy(heapAllocation.CPU, bufferData, bufferSize);
 
     m_d3d12CommandList->SetGraphicsRootShaderResourceView(slot, heapAllocation.GPU);
+}
+
+void CommandList::SetComputeDynamicStructuredBuffer(uint32_t slot, size_t numElements, size_t elementSize, const void* bufferData)
+{
+    size_t bufferSize = numElements * elementSize;
+
+    auto heapAllocation = m_UploadBuffer->Allocate(bufferSize, elementSize);
+    memcpy(heapAllocation.CPU, bufferData, bufferSize);
+
+    m_d3d12CommandList->SetComputeRootShaderResourceView(slot, heapAllocation.GPU);
 }
 
 void CommandList::SetViewport(const D3D12_VIEWPORT& viewport)

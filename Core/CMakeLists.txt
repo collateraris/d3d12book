@@ -11,6 +11,8 @@ set( HEADER_FILES
     inc/CommandQueue.h
     inc/ConstantBuffer.h
 	inc/d3dUtil.h
+	inc/DepthBuffer.h
+	inc/DepthBufferRenderPass.h
     inc/DescriptorAllocation.h
     inc/DescriptorAllocator.h
     inc/DescriptorAllocatorPage.h
@@ -29,6 +31,7 @@ set( HEADER_FILES
     inc/IndexBuffer.h
     inc/KeyCodes.h
 	inc/Light.h
+	inc/LightCulling.h
 	inc/Material.h
     inc/Mesh.h
 	inc/OcclusionCullRenderPass.h
@@ -63,6 +66,8 @@ set( SOURCE_FILES
     src/CommandList.cpp
     src/ConstantBuffer.cpp
 	src/d3dUtil.cpp
+	src/DepthBuffer.cpp
+	src/DepthBufferRenderPass.cpp
     src/DescriptorAllocation.cpp
     src/DescriptorAllocator.cpp
     src/DescriptorAllocatorPage.cpp
@@ -77,6 +82,7 @@ set( SOURCE_FILES
     src/GUI.cpp
     src/HighResolutionClock.cpp
     src/IndexBuffer.cpp
+	src/LightCulling.cpp
 	src/Material.cpp
     src/Mesh.cpp
 	src/OcclusionCullRenderPass.cpp
@@ -139,6 +145,7 @@ set( SHADER_FILES
 	shaders/Skybox_VS.hlsl
     shaders/Skybox_PS.hlsl
 	shaders/GridViewFrustums_CS.hlsl
+	shaders/LightCulling_CS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -208,6 +215,12 @@ set_source_files_properties( shaders/GridViewFrustums_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_GridViewFrustums_CS
+)
+
+set_source_files_properties( shaders/LightCulling_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_LightCulling_CS
 )
 
 set_source_files_properties( shaders/ImGUI_VS.hlsl

@@ -20,15 +20,15 @@ namespace dx12demo::fpdu
 		Type = 7,
 	};
 
-	void CollectLightsFromConfig(core::Config& config, std::vector<Light>& lightList);
+	void CollectLightsFromConfig(core::Config& config, std::vector<core::Light>& lightList);
 
-	void CollectLightsFromConfig(core::Config& config, std::vector<Light>& lightList)
+	void CollectLightsFromConfig(core::Config& config, std::vector<core::Light>& lightList)
 	{
 		auto lightsConfig = config.GetRoot().GetPath(LightsStr).GetChildren();
 		for (auto& lightConfig : lightsConfig)
 		{
 			float x, y, z, w;
-			Light light;
+			core::Light light;
 			auto item = lightConfig.GetChildren();
 			if (item.empty())
 				continue;
@@ -57,7 +57,7 @@ namespace dx12demo::fpdu
 			light.m_Range = item[ELightParams::Range].GetValueText<float>();
 			light.m_Intensity = item[ELightParams::Intensity].GetValueText<float>();
 			light.m_Enabled = item[ELightParams::Enabled].GetValueText<uint32_t>();
-			light.m_Type = static_cast<Light::ELightType>(item[ELightParams::Type].GetValueText<uint32_t>());
+			light.m_Type = static_cast<core::Light::ELightType>(item[ELightParams::Type].GetValueText<uint32_t>());
 
 			lightList.emplace_back(light);
 		}

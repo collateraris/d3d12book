@@ -1,3 +1,7 @@
+#define POINT_LIGHT 0
+#define SPOT_LIGHT 1
+#define DIRECTIONAL_LIGHT 2
+
 struct Plane
 {
     float3 N;   // Plane normal.
@@ -31,6 +35,67 @@ struct Frustum
     Plane planes[4];   // left, right, top, bottom frustum planes.
 };
 
+struct Light
+{
+    /**
+    * Position for point and spot lights (World space).
+    */
+    float4   PositionWS;
+    //--------------------------------------------------------------( 16 bytes )
+    /**
+    * Direction for spot and directional lights (World space).
+    */
+    float4   DirectionWS;
+    //--------------------------------------------------------------( 16 bytes )
+    /**
+    * Position for point and spot lights (View space).
+    */
+    float4   PositionVS;
+    //--------------------------------------------------------------( 16 bytes )
+    /**
+    * Direction for spot and directional lights (View space).
+    */
+    float4   DirectionVS;
+    //--------------------------------------------------------------( 16 bytes )
+    /**
+    * Color of the light. Diffuse and specular colors are not seperated.
+    */
+    float4   Color;
+    //--------------------------------------------------------------( 16 bytes )
+    /**
+    * The half angle of the spotlight cone.
+    */
+    float    SpotlightAngle;
+    /**
+    * The range of the light.
+    */
+    float    Range;
+
+    /**
+     * The intensity of the light.
+     */
+    float    Intensity;
+
+    /**
+    * Disable or enable the light.
+    */
+    bool    Enabled;
+    //--------------------------------------------------------------( 16 bytes )
+
+    /**
+     * Is the light selected in the editor?
+     */
+    bool    Selected;
+
+    /**
+    * The type of the light.
+    */
+    uint    Type;
+    float2  Padding;
+    //--------------------------------------------------------------( 16 bytes )
+    //--------------------------------------------------------------( 16 * 7 = 112 bytes )
+};
+
 struct ComputeShaderInput
 {
     uint3 groupID           : SV_GroupID;           // 3D index of the thread group in the dispatch.
@@ -59,6 +124,16 @@ void ClipToView(in float4 clip, in matrix inverseProjection, out float4 view);
 void ScreenToView(in float4 screen, in float2 screenDim, in float4x4 inverseProjection, out float4 view);
 
 void ComputePlane(in float3 p0, in float3 p1, in float3 p2, out Plane plane);
+
+bool SphereInsidePlane(in Sphere sphere, in Plane plane);
+
+bool SphereInsideFrustum(in Sphere sphere, in Frustum frustum, float zNear, float zFar);
+
+bool ConeInsidePlane(in Cone cone, in Plane plane);
+
+bool PointInsidePlane(in float3 p, in Plane plane);
+
+bool ConeInsideFrustum(in Cone cone, in Frustum frustum, float zNear, float zFar);
 
 // Convert clip space coordinates to view space
 void ClipToView(in float4 clip, in float4x4 inverseProjection, out float4 view)
@@ -93,6 +168,74 @@ void ComputePlane(in float3 p0, in float3 p1, in float3 p2, out Plane plane)
 
     // Compute the distance to the origin using p0.
     plane.d = dot(plane.N, p0);
+};
+
+bool SphereInsidePlane(in Sphere sphere, in Plane plane)
+{
+    return dot(sphere.c, plane.N) - plane.d < -sphere.r;
+};
+
+bool SphereInsideFrustum(in Sphere sphere, in Frustum frustum, float zNear, float zFar)
+{
+    // First check depth
+    // Note: Here, the view vector points in the -Z axis so the 
+    // far depth value will be approaching -infinity.
+    if (sphere.c.z - sphere.r > zNear || sphere.c.z + sphere.r < zFar)
+    {
+        return false;
+    }
+
+    // Then check frustum planes
+    for (int i = 0; i < 4; i++)
+    {
+        if (SphereInsidePlane(sphere, frustum.planes[i]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+};
+
+bool ConeInsidePlane(in Cone cone, in Plane plane)
+{
+    // Compute the farthest point on the end of the cone to the positive space of the plane.
+    float3 m = cross(cross(plane.N, cone.d), cone.d);
+    float3 Q = cone.T + cone.d * cone.h - cone.r * m;
+
+    // The cone is in the negative halfspace of the plane if both
+    // the tip of the cone and the farthest point on the end of the cone to the 
+    // positive halfspace of the plane are both inside the negative halfspace 
+    // of the plane.
+    return PointInsidePlane(cone.T, plane) && PointInsidePlane(Q, plane);
+};
+
+bool ConeInsideFrustum(in Cone cone, in Frustum frustum, float zNear, float zFar)
+{
+    Plane nearPlane = { float3(0, 0, -1), -zNear };
+    Plane farPlane = { float3(0, 0, 1), zFar };
+
+    // First check the near and far clipping planes.
+    if (ConeInsidePlane(cone, nearPlane) || ConeInsidePlane(cone, farPlane))
+    {
+        return false;
+    }
+
+    // Then check frustum planes
+    for (int i = 0; i < 4; i++)
+    {
+        if (ConeInsidePlane(cone, frustum.planes[i]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool PointInsidePlane(in float3 p, in Plane plane)
+{
+    return dot(plane.N, p) - plane.d < 0;
 };
 
 // it`s fake. not work

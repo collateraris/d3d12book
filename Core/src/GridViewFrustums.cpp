@@ -30,7 +30,8 @@ GridViewFrustum::GridViewFrustum()
     }
 
     CD3DX12_ROOT_PARAMETER1 rootParameters[ComputeParams::NumRootParameters];
-    rootParameters[ComputeParams::OutFrustumUAV].InitAsUnorderedAccessView(0, 0);
+    CD3DX12_DESCRIPTOR_RANGE1 outFrustumDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+    rootParameters[ComputeParams::OutFrustumUAV].InitAsDescriptorTable(1, &outFrustumDescrRange);
     rootParameters[ComputeParams::ScreenToViewParamsCB].InitAsConstantBufferView(0, 0);
     rootParameters[ComputeParams::DispatchParamsCB].InitAsConstantBufferView(1, 0);
 
@@ -72,13 +73,11 @@ void GridViewFrustum::Compute(const ScreenToViewParams& params, const DispatchPa
     m_GridFrustums.resize(frustumsNum);
     commandList->CopyStructuredBuffer(m_GridFrustumBuffer, m_GridFrustums);
 
-    commandList->SetComputeRootUnorderedAccessView(ComputeParams::OutFrustumUAV, m_GridFrustumBuffer);
+    commandList->SetUnorderedAccessView(ComputeParams::OutFrustumUAV, 0, m_GridFrustumBuffer);
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::ScreenToViewParamsCB, params);
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::DispatchParamsCB, dispatchPar);
 
     commandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
-
-    commandList->UAVBarrier(m_GridFrustumBuffer);
 
 }
 

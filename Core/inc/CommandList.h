@@ -224,6 +224,16 @@ namespace dx12demo::core
             SetGraphicsDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
         }
 
+        /**
+         * Set compute structured buffer contents.
+         */
+        void SetComputeDynamicStructuredBuffer(uint32_t slot, size_t numElements, size_t elementSize, const void* bufferData);
+        template<typename T>
+        void SetComputeDynamicStructuredBuffer(uint32_t slot, const std::vector<T>& bufferData)
+        {
+            SetComputeDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
+        }
+
         void SetViewport(const D3D12_VIEWPORT& viewport);
         void SetViewports(const std::vector<D3D12_VIEWPORT>& viewports);
 

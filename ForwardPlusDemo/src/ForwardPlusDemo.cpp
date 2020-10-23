@@ -153,24 +153,35 @@ bool ForwardPlusDemo::LoadContent()
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
+    float swidth = GetClientWidth();
+    float sheight = GetClientHeight();
+
+    core::ScreenToViewParams screenToViewParams;
+    screenToViewParams.m_InverseProjectionMatrix = m_Camera.get_InverseProjectionMatrix();
+    screenToViewParams.m_ScreenDimensions = { swidth, sheight };
+    m_ScreenToViewParams = screenToViewParams;
+
+    core::DispatchParams dispatchPar;
+    dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
+    const auto& numThreads = dispatchPar.m_NumThreads;
+    dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
+    m_CSDispatchParams = dispatchPar;
+
+    {
+        m_ComputeGridFrustums.Compute(m_ScreenToViewParams, m_CSDispatchParams);
+    }
+
     {
         fpdu::CollectLightsFromConfig(*m_Config, m_Lights);
     }
 
     {
-        float swidth = GetClientWidth();
-        float sheight = GetClientHeight();
-
-        core::ScreenToViewParams params;
-        params.m_InverseProjectionMatrix = m_Camera.get_InverseProjectionMatrix();
-        params.m_ScreenDimensions = { swidth, sheight };
-
-        core::DispatchParams dispatchPar;
-        dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
-        const auto& numThreads = dispatchPar.m_NumThreads;
-        dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
-
-        m_ComputeGridFrustums.Compute(params, dispatchPar);
+        m_ComputeLightCulling.StartCompute();
+        m_ComputeLightCulling.InitDebugTex(swidth, sheight);
+        m_ComputeLightCulling.InitLightGridTexture(dispatchPar);
+        m_ComputeLightCulling.InitLightIndexListBuffers(dispatchPar, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
+        m_ComputeLightCulling.InitLightsBuffer(m_Lights);
+        m_ComputeLightCulling.AttachNumLights(m_Lights.size());
     }
 
     {
@@ -432,7 +443,14 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
 
-       m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
+       //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
+    }
+
+    {
+        m_ComputeLightCulling.StartCompute();
+        m_ComputeLightCulling.AttachGridViewFrustums(m_ComputeGridFrustums.GetGridFrustums());
+        m_ComputeLightCulling.AttachDepthTex(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil));
+        m_ComputeLightCulling.Compute(m_ScreenToViewParams, m_CSDispatchParams);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());

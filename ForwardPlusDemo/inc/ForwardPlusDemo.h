@@ -13,6 +13,7 @@
 #include <Light.h>
 #include <config_sys/Config.h>
 #include <GridViewFrustums.h>
+#include <LightCulling.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -83,7 +84,7 @@ namespace dx12demo
         
         core::EnvironmentMapRenderPass m_envRenderPass;
 
-        std::vector<Light> m_Lights;
+        std::vector<core::Light> m_Lights;
 
         float m_FoV;
 
@@ -102,8 +103,19 @@ namespace dx12demo
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
+        // For the light index list, we need to make a guess as to the average 
+        // number of overlapping lights per tile. It could be possible to refine this
+        // value at runtime (if it is underestimated) but for now, I'll just take a guess
+        // of about 200 lights (which may be an overestimation, but better over than under). 
+        // The total size of the buffer will be determined by the grid size but for 16x16
+        // tiles at 1080p, we would need 120x68 tiles * 200 light indices * 4 bytes (to store a uint)
+        // making the light index list 6,528,000 bytes (6.528 MB)
+        const uint32_t AVERAGE_OVERLAPPING_LIGHTS_PER_TILE = 200u;
         uint16_t m_LightCullingBlockSize = 16;
         core::GridViewFrustum m_ComputeGridFrustums;
+        core::LightCulling m_ComputeLightCulling;
+        core::DispatchParams m_CSDispatchParams;
+        core::ScreenToViewParams m_ScreenToViewParams;
 
         int m_Width;
         int m_Height;

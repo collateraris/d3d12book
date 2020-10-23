@@ -5,7 +5,6 @@ file(COPY assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Release/)
 
 set( HEADER_FILES 
     inc/ForwardPlusDemo.h
-	inc/Light.h
 	inc/StringConstant.h
 	inc/ForwardPlusDemoUtils.h
 )
