@@ -11,7 +11,7 @@ set( HEADER_FILES
     inc/CommandQueue.h
     inc/ConstantBuffer.h
 	inc/d3dUtil.h
-	inc/DepthBuffer.h
+	inc/DebugDepthBufferRenderPass.h
 	inc/DepthBufferRenderPass.h
     inc/DescriptorAllocation.h
     inc/DescriptorAllocator.h
@@ -36,6 +36,7 @@ set( HEADER_FILES
     inc/Mesh.h
 	inc/OcclusionCullRenderPass.h
     inc/PanoToCubemapPSO.h
+	inc/QuadRenderPass.h
 	inc/QuadTree.h
 	inc/RenderPassBase.h
     inc/RenderTarget.h
@@ -66,7 +67,7 @@ set( SOURCE_FILES
     src/CommandList.cpp
     src/ConstantBuffer.cpp
 	src/d3dUtil.cpp
-	src/DepthBuffer.cpp
+	src/DebugDepthBufferRenderPass.cpp
 	src/DepthBufferRenderPass.cpp
     src/DescriptorAllocation.cpp
     src/DescriptorAllocator.cpp
@@ -87,6 +88,7 @@ set( SOURCE_FILES
     src/Mesh.cpp
 	src/OcclusionCullRenderPass.cpp
     src/PanoToCubemapPSO.cpp
+	src/QuadRenderPass.cpp
 	src/RenderPassBase.cpp
     src/RenderTarget.cpp
     src/Resource.cpp
@@ -146,6 +148,12 @@ set( SHADER_FILES
     shaders/Skybox_PS.hlsl
 	shaders/GridViewFrustums_CS.hlsl
 	shaders/LightCulling_CS.hlsl
+	shaders/DepthBuffer_PS.hlsl
+	shaders/DepthBuffer_VS.hlsl
+	shaders/DebugDepthBuffer_PS.hlsl
+	shaders/DebugDepthBuffer_VS.hlsl
+	shaders/Quad_PS.hlsl
+	shaders/Quad_VS.hlsl		
 )
 
 set( SHADER_COMMON_FILES
@@ -181,7 +189,7 @@ target_link_libraries( Core
     PUBLIC dxguid.lib
 )
 
-set_source_files_properties( ${SHADER_FILES} ${SHADER_COMMON_FILES}
+set_source_files_properties( ${SHADER_FILES}
     PROPERTIES
         VS_SHADER_MODEL 5.1
         VS_SHADER_OUTPUT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/%(Filename).h"
@@ -203,6 +211,48 @@ set_source_files_properties( shaders/GenerateMips_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_GenerateMips_CS
+)
+
+set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/DepthBuffer_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_DepthBuffer_VS
+)
+
+set_source_files_properties( shaders/DepthBuffer_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_DepthBuffer_PS
+)
+
+set_source_files_properties( shaders/DebugDepthBuffer_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_DebugDepthBuffer_VS
+)
+
+set_source_files_properties( shaders/DebugDepthBuffer_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_DebugDepthBuffer_PS
+)
+
+set_source_files_properties( shaders/Quad_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_Quad_VS
+)
+
+set_source_files_properties( shaders/Quad_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_Quad_PS
 )
 
 set_source_files_properties( shaders/PanoToCubemap_CS.hlsl

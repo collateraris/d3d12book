@@ -313,12 +313,12 @@ void Terrain::CalculateTextureCoordinates(const TerrainInfo& info, std::vector<D
 	}
 }
 
-void Terrain::Render(CommandList& commandList)
+void Terrain::Render(std::shared_ptr<CommandList>& commandList)
 {
 	m_terrainMesh->Render(commandList);
 }
 
-void Terrain::Render(CommandList& commandList, Frustum& frustum)
+void Terrain::Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum)
 {
 	m_terrainMesh->Render(commandList, frustum);
 }

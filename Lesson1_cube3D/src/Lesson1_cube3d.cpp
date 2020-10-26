@@ -425,7 +425,7 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
 
         commandList->SetShaderResourceView(1, 0, m_GraceCathedralCubemap, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, &srvDesc);
 
-        m_SkyboxMesh->Render(*commandList);
+        m_SkyboxMesh->Render(commandList);
     }
 
     commandList->SetPipelineState(m_PipelineState);
@@ -437,7 +437,7 @@ void Lesson1_cube3d::OnRender(core::RenderEventArgs& e)
     commandList->SetGraphicsDynamicConstantBuffer(RootParameters::MatricesCB1, MVP);
     commandList->SetShaderResourceView(RootParameters::Textures, 0, m_EarthTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-    m_SphereMesh->Render(*commandList);
+    m_SphereMesh->Render(commandList);
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());

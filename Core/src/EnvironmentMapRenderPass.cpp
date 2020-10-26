@@ -6,6 +6,7 @@
 #include <Skybox_VS.h>
 
 #include <Application.h>
+#include <CommandQueue.h>
 
 using namespace dx12demo::core;
 
@@ -97,21 +98,21 @@ void EnvironmentMapRenderPass::LoadContent(RenderPassBaseInfo* info)
     }
 }
 
-void EnvironmentMapRenderPass::OnUpdate(CommandList& commandList, UpdateEventArgs& e)
+void EnvironmentMapRenderPass::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEventArgs& e)
 {
     auto viewMatrix = XMMatrixTranspose(XMMatrixRotationQuaternion(m_Camera->get_Rotation()));
     auto& projMatrix = m_Camera->get_ProjectionMatrix();
     m_ViewProjMatrix = viewMatrix * projMatrix;
 }
 
-void EnvironmentMapRenderPass::OnRender(CommandList& commandList, RenderEventArgs& e)
+void EnvironmentMapRenderPass::OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
 {
-    commandList.SetPipelineState(m_SkyboxPipelineState);
-    commandList.SetGraphicsRootSignature(m_SkyboxSignature);
+    commandList->SetPipelineState(m_SkyboxPipelineState);
+    commandList->SetGraphicsRootSignature(m_SkyboxSignature);
 
-    commandList.SetGraphics32BitConstants(0, m_ViewProjMatrix);
+    commandList->SetGraphics32BitConstants(0, m_ViewProjMatrix);
 
-    commandList.SetShaderResourceView(1, 0, m_CubemapTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, &m_SrvDesc);
+    commandList->SetShaderResourceView(1, 0, m_CubemapTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, &m_SrvDesc);
 
     m_SkyboxMesh->Render(commandList);
 }

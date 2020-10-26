@@ -19,12 +19,12 @@ void OcclusionCullRenderPass::LoadContent(RenderPassBaseInfo* info)
 
 }
 
-void OcclusionCullRenderPass::OnUpdate(CommandList& commandList, UpdateEventArgs& e)
+void OcclusionCullRenderPass::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEventArgs& e)
 {
 
 }
 
-void OcclusionCullRenderPass::OnRender(CommandList& commandList, RenderEventArgs& e)
+void OcclusionCullRenderPass::OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
 {
 
 }

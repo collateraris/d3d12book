@@ -8,6 +8,7 @@
 
 #include <mutex>
 #include <unordered_map>
+#include <optional>
 
 namespace dx12demo::core
 {
@@ -16,13 +17,15 @@ namespace dx12demo::core
     public:
         explicit Texture(TextureUsage textureUsage = TextureUsage::None,
             const std::wstring& name = L"");
-        explicit Texture(const D3D12_RESOURCE_DESC& resourceDesc,
-            const D3D12_CLEAR_VALUE* clearValue = nullptr,
-            TextureUsage textureUsage = TextureUsage::None,
-            const std::wstring& name = L"");
         explicit Texture(Microsoft::WRL::ComPtr<ID3D12Resource> resource,
             TextureUsage textureUsage = TextureUsage::None,
             const std::wstring& name = L"");
+        explicit Texture(const D3D12_RESOURCE_DESC& resourceDesc,
+            const D3D12_CLEAR_VALUE* clearValue = nullptr,
+            TextureUsage textureUsage = TextureUsage::None,
+            const std::wstring& name = L"",
+            const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr,
+            const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr);
 
         Texture(const Texture& copy);
         Texture(Texture&& copy);
@@ -46,7 +49,7 @@ namespace dx12demo::core
         /**
          * Create SRV and UAVs for the resource.
          */
-        virtual void CreateViews();
+        virtual void CreateViews(const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr, const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr);
 
         /**
         * Get the SRV for a resource.
@@ -96,5 +99,8 @@ namespace dx12demo::core
         mutable std::mutex m_UnorderedAccessViewsMutex;
 
         TextureUsage m_TextureUsage = TextureUsage::None;
+        
+        std::optional<D3D12_RENDER_TARGET_VIEW_DESC> m_RTV;
+        std::optional<D3D12_DEPTH_STENCIL_VIEW_DESC> m_DSV;
 	};
 }

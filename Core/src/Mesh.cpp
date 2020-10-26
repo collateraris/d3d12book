@@ -31,29 +31,29 @@ Mesh::~Mesh()
     // Allocated resources will be cleaned automatically when the pointers go out of scope.
 }
 
-void Mesh::Render(CommandList& commandList, uint32_t instanceCount/* = 1*/, uint32_t firstInstance/* = 0*/)
+void Mesh::Render(std::shared_ptr<CommandList>& commandList, uint32_t instanceCount/* = 1*/, uint32_t firstInstance/* = 0*/)
 {
-    commandList.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    commandList.SetVertexBuffer(0, m_VertexBuffer);
+    commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    commandList->SetVertexBuffer(0, m_VertexBuffer);
     if (m_IndexCount > 0)
     {
-        commandList.SetIndexBuffer(m_IndexBuffer);
-        commandList.DrawIndexed(m_IndexCount, instanceCount, 0, 0, firstInstance);
+        commandList->SetIndexBuffer(m_IndexBuffer);
+        commandList->DrawIndexed(m_IndexCount, instanceCount, 0, 0, firstInstance);
     }
     else
     {
-        commandList.Draw(m_VertexBuffer.GetNumVertices(), instanceCount, 0, firstInstance);
+        commandList->Draw(m_VertexBuffer.GetNumVertices(), instanceCount, 0, firstInstance);
     }
 }
 
-void Mesh::RenderSubMesh(CommandList& commandList, uint16_t indexSubMesh, uint32_t instanceCount/* = 1*/, uint32_t firstInstance/* = 0*/)
+void Mesh::RenderSubMesh(std::shared_ptr<CommandList>& commandList, uint16_t indexSubMesh, uint32_t instanceCount/* = 1*/, uint32_t firstInstance/* = 0*/)
 {
-    commandList.SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    commandList.SetVertexBuffer(0, m_VertexBuffer);
-    commandList.SetIndexBuffer(m_IndexBuffer);
+    commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    commandList->SetVertexBuffer(0, m_VertexBuffer);
+    commandList->SetIndexBuffer(m_IndexBuffer);
     
     auto& submesh = m_SubMeshes[indexSubMesh];
-    commandList.DrawIndexed(submesh.IndexCount, instanceCount, submesh.StartIndexLocation, submesh.BaseVertexLocation, firstInstance);
+    commandList->DrawIndexed(submesh.IndexCount, instanceCount, submesh.StartIndexLocation, submesh.BaseVertexLocation, firstInstance);
 }
 
 void Mesh::PushSubMesh(uint16_t index, SubMesh& submesh)
@@ -262,6 +262,47 @@ std::unique_ptr<Mesh> Mesh::CreateCube(CommandList& commandList, float size, boo
     }
 
     // Create the primitive object.
+    std::unique_ptr<Mesh> mesh(new Mesh());
+
+    mesh->Initialize(commandList, vertices, indices, rhcoords);
+
+    return mesh;
+}
+
+std::unique_ptr<Mesh> Mesh::CreateQuad(CommandList& commandList, float x, float y, float w, float h, float depth, bool rhcoords/* = false*/)
+{
+    VertexCollection vertices(4);
+    IndexCollection indices(6);
+
+    // Position coordinates specified in NDC space.
+   vertices[0] = PosNormTexVertex(
+       DirectX::XMFLOAT3{ x, y - h, depth },
+       { 0.0f, 0.0f, -1.0f },
+       { 0.0f, 1.0f });
+
+    vertices[1] = PosNormTexVertex(
+        DirectX::XMFLOAT3{ x, y, depth },
+        { 0.0f, 0.0f, -1.0f },
+        { 0.0f, 0.0f });
+
+    vertices[2] = PosNormTexVertex(
+        DirectX::XMFLOAT3{ x + w, y, depth },
+        { 0.0f, 0.0f, -1.0f },
+        { 1.0f, 0.0f });
+
+    vertices[3] = PosNormTexVertex(
+        DirectX::XMFLOAT3{ x + w, y - h, depth },
+        { 0.0f, 0.0f, -1.0f },
+        { 1.0f, 1.0f });
+
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
+
+    indices[3] = 0;
+    indices[4] = 2;
+    indices[5] = 3;
+
     std::unique_ptr<Mesh> mesh(new Mesh());
 
     mesh->Initialize(commandList, vertices, indices, rhcoords);

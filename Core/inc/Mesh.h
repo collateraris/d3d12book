@@ -130,8 +130,8 @@ namespace dx12demo::core
     {
     public:
 
-        void Render(CommandList& commandList, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
-        void RenderSubMesh(CommandList& commandList, uint16_t indexSubMesh, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
+        void Render(std::shared_ptr<CommandList>& commandList, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
+        void RenderSubMesh(std::shared_ptr<CommandList>& commandList, uint16_t indexSubMesh, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
 
         static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexExtendedCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info);
         static std::unique_ptr<Mesh> CreateCustomMesh(CommandList& commandList, VertexCollection& vertices, IndexCollection& indices, MeshCreatorInfo& info);
@@ -142,6 +142,7 @@ namespace dx12demo::core
         static std::unique_ptr<Mesh> CreateCone(CommandList& commandList, float diameter = 1, float height = 1, size_t tessellation = 32, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateTorus(CommandList& commandList, float diameter = 1, float thickness = 0.333f, size_t tessellation = 32, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreatePlane(CommandList& commandList, float width = 1, float height = 1, bool rhcoords = false);
+        static std::unique_ptr<Mesh> CreateQuad(CommandList& commandList, float x, float y, float w, float h, float depth, bool rhcoords = false);
 
         const BSphere& GetBSphere() const;
         const BAABB& GetBAABB() const;

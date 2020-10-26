@@ -1005,6 +1005,24 @@ void CommandList::SetRenderTarget(const RenderTarget& renderTarget)
         renderTargetDescriptors.data(), FALSE, pDSV);
 }
 
+void CommandList::SetRenderTargetWriteDepthBufferOnly(const RenderTarget& renderTarget)
+{
+    const auto& depthTexture = renderTarget.GetTexture(AttachmentPoint::DepthStencil);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE depthStencilDescriptor(D3D12_DEFAULT);
+    if (depthTexture.GetD3D12Resource())
+    {
+        TransitionBarrier(depthTexture, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+        depthStencilDescriptor = depthTexture.GetDepthStencilView();
+        TrackResource(depthTexture);
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE* pDSV = depthStencilDescriptor.ptr != 0 ? &depthStencilDescriptor : nullptr;
+
+    m_d3d12CommandList->OMSetRenderTargets(0, nullptr, FALSE, pDSV);
+   
+}
+
 void CommandList::SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType, ID3D12DescriptorHeap* heap)
 {
     if (m_DescriptorHeaps[heapType] != heap)

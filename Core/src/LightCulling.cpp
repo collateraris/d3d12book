@@ -174,19 +174,13 @@ void LightCulling::AttachNumLights(int num)
     m_CurrState.set(EBitsetStates::bAttachNumLights);
 }
 
-void LightCulling::AttachDepthTex(const Texture& depthTex)
+void LightCulling::AttachDepthTex(const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc/* = nullptr*/)
 {
     assert(m_CurrState.test(EBitsetStates::bStartCompute));
-    /*
-    auto texDesc = depthTex.GetD3D12ResourceDesc();
-    texDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-    auto tex = core::Texture(texDesc, nullptr,
-        TextureUsage::Albedo,
-        L"OpaqueLightGrid tex for light culling");
-    m_CurrCommandList->CopyResource(tex, depthTex);
-
-    m_CurrCommandList->SetShaderResourceView(ComputeParams::t0DepthTextureVSTex, 0, tex);
-    */
+   
+    m_CurrCommandList->SetShaderResourceView(ComputeParams::t0DepthTextureVSTex, 0, depthTex,
+        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+        0, 0, srvDesc);
     m_CurrState.set(EBitsetStates::bAttachDepthTex);
 }
 
@@ -229,4 +223,9 @@ void LightCulling::Compute(const ScreenToViewParams& params, const DispatchParam
 
     const auto& numThreads = dispatchPar.m_NumThreads;
     m_CurrCommandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
+}
+
+const Texture& LightCulling::GetDebugTex() const
+{
+    return m_DebugTex;
 }

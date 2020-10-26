@@ -31,8 +31,8 @@ namespace dx12demo::core
 		virtual ~Scene();
 
 		bool LoadFromFile(std::shared_ptr<CommandList>& commandList, const std::wstring& fileName, bool rhcoords = false, float scale = 1);
-		void Render(std::shared_ptr<CommandList>& commandList, std::function<void(std::shared_ptr<Material>&)>& drawMatFun);
-		void Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, std::function<void(std::shared_ptr<Material>&)>& drawMatFun);
+		void Render(std::shared_ptr<CommandList>& commandList, std::function<void(std::shared_ptr<CommandList>&, std::shared_ptr<Material>&)>& drawMatFun);
+		void Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, std::function<void(std::shared_ptr<CommandList>&, std::shared_ptr<Material>&)>& drawMatFun);
 
 	private:
 

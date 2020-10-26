@@ -537,7 +537,7 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
 
         commandList->SetShaderResourceView(1, 0, m_GraceCathedralCubemap, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, 0, D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES, &srvDesc);
 
-        m_SkyboxMesh->Render(*commandList);
+        m_SkyboxMesh->Render(commandList);
     }
 
     commandList->SetPipelineState(m_ScenePipelineState);
@@ -561,7 +561,7 @@ void Lesson2_forward_shading::OnRender(core::RenderEventArgs& e)
 
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
         
-        std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
+        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
         {
             if (!material->GetAmbientTex().IsEmpty())
                 commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);

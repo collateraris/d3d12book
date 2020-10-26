@@ -36,11 +36,13 @@ namespace dx12demo::core
 
         void AttachNumLights(int num);
 
-        void AttachDepthTex(const Texture& depthTex);
+        void AttachDepthTex(const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc = nullptr);
 
         void AttachGridViewFrustums(const StructuredBuffer& frustums);
 
         void Compute(const ScreenToViewParams& params, const DispatchParams& dispatchPar);
+
+        const Texture& GetDebugTex() const;
 
     private:
 

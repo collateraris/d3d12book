@@ -14,6 +14,9 @@
 #include <config_sys/Config.h>
 #include <GridViewFrustums.h>
 #include <LightCulling.h>
+#include <DepthBufferRenderPass.h>
+#include <DebugDepthBufferRenderPass.h>
+#include <QuadRenderPass.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -83,6 +86,9 @@ namespace dx12demo
         std::unique_ptr<core::Config> m_Config;
         
         core::EnvironmentMapRenderPass m_envRenderPass;
+        core::DepthBufferRenderPass m_DepthBufferRenderPass;
+        core::DebugDepthBufferRenderPass m_DebugDepthBufferRenderPass;
+        core::QuadRenderPass m_QuadRenderPass;
 
         std::vector<core::Light> m_Lights;
 
@@ -116,6 +122,9 @@ namespace dx12demo
         core::LightCulling m_ComputeLightCulling;
         core::DispatchParams m_CSDispatchParams;
         core::ScreenToViewParams m_ScreenToViewParams;
+
+        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_MaterialDrawFun;
+        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_DepthBufferDrawFun;
 
         int m_Width;
         int m_Height;

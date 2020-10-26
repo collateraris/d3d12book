@@ -283,6 +283,8 @@ namespace dx12demo::core
          */
         void SetRenderTarget(const RenderTarget& renderTarget);
 
+        void SetRenderTargetWriteDepthBufferOnly(const RenderTarget& renderTarget);
+
         /**
          * Generate mips for the texture.
          * The first subresource is used to generate the mip chain.

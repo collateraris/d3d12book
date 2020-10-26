@@ -347,7 +347,7 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
     {
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
-        m_envRenderPass.OnUpdate(*commandList, e);
+        m_envRenderPass.OnUpdate(commandList, e);
     }
 
     {
@@ -399,7 +399,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        m_envRenderPass.OnRender(*commandList, e);
+        m_envRenderPass.OnRender(commandList, e);
     }
 
     commandList->SetPipelineState(m_ScenePipelineState);

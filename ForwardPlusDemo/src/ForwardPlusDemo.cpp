@@ -109,11 +109,11 @@ bool ForwardPlusDemo::LoadContent()
     auto commandList = commandQueue->GetCommandList();
 
     auto scenePath = m_Config->GetRoot().GetPath(SceneFileNameStr).GetValueText<std::wstring>();
-    //m_Sponza.LoadFromFile(commandList, scenePath, true);
+    m_Sponza.LoadFromFile(commandList, scenePath, true);
 
     // Create an HDR intermediate render target.
-    DXGI_FORMAT HDRFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D32_FLOAT;
+    DXGI_FORMAT HDRFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    DXGI_FORMAT depthBufferFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
     // Create an off-screen render target with a single color buffer and a depth buffer.
     auto colorDesc = CD3DX12_RESOURCE_DESC::Tex2D(HDRFormat, m_Width, m_Height);
@@ -153,6 +153,19 @@ bool ForwardPlusDemo::LoadContent()
         featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
     }
 
+    {
+        m_MaterialDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
+        {
+            if (!material->GetAmbientTex().IsEmpty())
+                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        };
+
+        m_DepthBufferDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
+        {
+            
+        };
+    }
+
     float swidth = GetClientWidth();
     float sheight = GetClientHeight();
 
@@ -186,7 +199,7 @@ bool ForwardPlusDemo::LoadContent()
 
     {
         core::EnvironmentMapRenderPassInfo envInfo;
-        envInfo.commandList = &*commandList;
+        envInfo.commandList = commandList;
         envInfo.camera = &m_Camera;
         envInfo.cubeMapSize = 1024;
         envInfo.cubeMapDepthOrArraySize = 6;
@@ -197,6 +210,28 @@ bool ForwardPlusDemo::LoadContent()
         m_envRenderPass.LoadContent(&envInfo);
     }
 
+    {
+        core::DepthBufferRenderPassInfo info;
+        info.bufferW = swidth;
+        info.bufferH = sheight;
+        info.rootSignatureVersion = featureData.HighestVersion;
+        m_DepthBufferRenderPass.LoadContent(&info);
+    }
+
+    {
+        core::DebugDepthBufferRenderPassInfo info;
+        info.commandList = commandList;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        info.rootSignatureVersion = featureData.HighestVersion;
+        m_DebugDepthBufferRenderPass.LoadContent(&info);
+    }
+
+    {
+        core::QuadRenderPassInfo info;
+        info.rootSignatureVersion = featureData.HighestVersion;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        m_QuadRenderPass.LoadContent(&info);
+    }
 
     // Create a root signature for the forward shading (scene) pipeline.
     {
@@ -368,7 +403,7 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
     {
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
-        m_envRenderPass.OnUpdate(*commandList, e);
+        m_envRenderPass.OnUpdate(commandList, e);
     }
 
     {
@@ -408,49 +443,58 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     // Clear the render targets.
     {
-        FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+        //FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+        FLOAT clearColor[] = { 0.f, 1.f, 0.f, 1.0f };
 
         commandList->ClearTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::Color0), clearColor);
-        commandList->ClearDepthStencilTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil), D3D12_CLEAR_FLAG_DEPTH);
+        commandList->ClearDepthStencilTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL);
     }
 
-    commandList->SetRenderTarget(m_RenderTarget);
-    commandList->SetViewport(m_RenderTarget.GetViewport());
-    commandList->SetScissorRect(m_ScissorRect);
+    //commandList->SetRenderTarget(m_RenderTarget);
+    //commandList->SetViewport(m_RenderTarget.GetViewport());
+    //commandList->SetScissorRect(m_ScissorRect);
+
 
     // Render the skybox.
     {
-        m_envRenderPass.OnRender(*commandList, e);
+        //m_envRenderPass.OnRender(commandList, e);
     }
 
-    commandList->SetPipelineState(m_ScenePipelineState);
-    commandList->SetGraphicsRootSignature(m_SceneRootSignature);
+    //commandList->SetPipelineState(m_ScenePipelineState);
+    //commandList->SetGraphicsRootSignature(m_SceneRootSignature)
     //render scene
     {
         Mat matrices;
 
         auto model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
-
+        m_DepthBufferRenderPass.OnRender(commandList, e);
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
-
-        std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
-        {
-            if (!material->GetAmbientTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        };
-
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
-
-       //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
+        //commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
+        
+        m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
     }
 
     {
+        /*
         m_ComputeLightCulling.StartCompute();
         m_ComputeLightCulling.AttachGridViewFrustums(m_ComputeGridFrustums.GetGridFrustums());
-        m_ComputeLightCulling.AttachDepthTex(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil));
+        m_ComputeLightCulling.AttachDepthTex(m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
         m_ComputeLightCulling.Compute(m_ScreenToViewParams, m_CSDispatchParams);
+        */
+    }
+
+    {
+        commandList->SetRenderTarget(m_RenderTarget);
+        commandList->SetViewport(m_RenderTarget.GetViewport());
+        commandList->SetScissorRect(m_ScissorRect);
+        m_DebugDepthBufferRenderPass.OnPreRender(commandList, e);
+        //commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            0, 0, &m_DepthBufferRenderPass.GetSRV());
+        m_DebugDepthBufferRenderPass.OnRender(commandList, e);
+        
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -458,6 +502,10 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
+    //commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    //commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    //commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+    //    0, 0, &m_DepthBufferRenderPass.GetSRV());
     commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     commandList->Draw(3);

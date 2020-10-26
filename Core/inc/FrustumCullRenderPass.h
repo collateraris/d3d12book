@@ -15,8 +15,8 @@ namespace dx12demo::core
 
 		virtual void LoadContent(RenderPassBaseInfo*) override;
 
-		virtual void OnUpdate(CommandList&, UpdateEventArgs& e) override;
+		virtual void OnUpdate(std::shared_ptr<CommandList>&, UpdateEventArgs& e) override;
 
-		virtual void OnRender(CommandList&, RenderEventArgs& e) override;
+		virtual void OnRender(std::shared_ptr<CommandList>&, RenderEventArgs& e) override;
 	};
 }

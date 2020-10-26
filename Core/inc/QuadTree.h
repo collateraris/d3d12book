@@ -43,9 +43,9 @@ namespace dx12demo::core
 
 		void Generate(CommandList& commandList, const std::vector<VerticesContainer>& srcVertices, int maxTrianglesInNode = 10000);
 		
-		void Render(CommandList& commandList);
+		void Render(std::shared_ptr<CommandList>& commandList);
 
-		void Render(CommandList& commandList, Frustum& frustum);
+		void Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum);
 
 	private:
 
@@ -63,7 +63,7 @@ namespace dx12demo::core
 
 		void AllocateNode(QuadTreeNode*& node);
 
-		void RenderNode(CommandList& commandList, const std::array<DirectX::XMFLOAT4, 6>& frustum_planes, QuadTreeNode*& node);
+		void RenderNode(std::shared_ptr<CommandList>& commandList, const std::array<DirectX::XMFLOAT4, 6>& frustum_planes, QuadTreeNode*& node);
 
 		NodesStorage m_nodes;
 
@@ -351,7 +351,7 @@ namespace dx12demo::core
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::Render(CommandList& commandList)
+	void QuadTree<VerticesContainer>::Render(std::shared_ptr<CommandList>& commandList)
 	{
 		for (auto& node : m_nodes)
 		{
@@ -361,13 +361,13 @@ namespace dx12demo::core
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::Render(CommandList& commandList, Frustum& frustum)
+	void QuadTree<VerticesContainer>::Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum)
 	{		
 		RenderNode(commandList, frustum.GetFrustumPlanesF4(), m_rootNode);
 	}
 
 	template<typename VerticesContainer>
-	void QuadTree<VerticesContainer>::RenderNode(CommandList& commandList, const std::array<DirectX::XMFLOAT4, 6>& frustum_planes, QuadTreeNode*& node)
+	void QuadTree<VerticesContainer>::RenderNode(std::shared_ptr<CommandList>& commandList, const std::array<DirectX::XMFLOAT4, 6>& frustum_planes, QuadTreeNode*& node)
 	{
 		BSphere sphere;
 		sphere.r = node->width * 0.5f;

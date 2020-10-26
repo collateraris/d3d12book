@@ -27,9 +27,9 @@ namespace dx12demo::core
 
 		void Generate(CommandList& commandList, const TerrainInfo&);
 
-		void Render(CommandList& commandList);
+		void Render(std::shared_ptr<CommandList>& commandList);
 
-		void Render(CommandList& commandList, Frustum& frustum);
+		void Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum);
 
 	private:
 
