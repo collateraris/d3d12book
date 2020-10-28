@@ -64,7 +64,8 @@ GridViewFrustum::~GridViewFrustum()
 
 void GridViewFrustum::Compute(const ScreenToViewParams& params, const DispatchParams& dispatchPar)
 {
-    auto commandList = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE)->GetCommandList();
+    auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+    auto commandList = commandQueue->GetCommandList();
     commandList->SetComputeRootSignature(m_RootSignature);
     commandList->SetPipelineState(m_PipelineState);
 
@@ -79,6 +80,35 @@ void GridViewFrustum::Compute(const ScreenToViewParams& params, const DispatchPa
 
     commandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
 
+    /*
+
+    auto& device = GetApp().GetDevice();
+
+    ComPtr<ID3D12Resource> mReadBackBuffer;
+    ThrowIfFailed(device->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+        D3D12_HEAP_FLAG_NONE,
+        &CD3DX12_RESOURCE_DESC::Buffer(sizeof(FrustumPrimitive) * frustumsNum),
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&mReadBackBuffer)));
+
+
+    commandList->TransitionBarrier(m_GridFrustumBuffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+    commandList->CopyResource(mReadBackBuffer, m_GridFrustumBuffer.GetD3D12Resource());
+
+    */
+
+    auto fenceValue = commandQueue->ExecuteCommandList(commandList);
+    commandQueue->WaitForFenceValue(fenceValue);
+
+
+    /*
+    FrustumPrimitive* mappedData = nullptr;
+    ThrowIfFailed(mReadBackBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
+
+    mReadBackBuffer->Unmap(0, nullptr);
+    */
 }
 
 const StructuredBuffer& GridViewFrustum::GetGridFrustums() const

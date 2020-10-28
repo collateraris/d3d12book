@@ -189,11 +189,10 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        m_ComputeLightCulling.StartCompute();
         m_ComputeLightCulling.InitDebugTex(swidth, sheight);
         m_ComputeLightCulling.InitLightGridTexture(dispatchPar);
-        m_ComputeLightCulling.InitLightIndexListBuffers(dispatchPar, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
-        m_ComputeLightCulling.InitLightsBuffer(m_Lights);
+        m_ComputeLightCulling.InitLightIndexListBuffers(commandList, dispatchPar, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
+        m_ComputeLightCulling.InitLightsBuffer(commandList, m_Lights);
         m_ComputeLightCulling.AttachNumLights(m_Lights.size());
     }
 
@@ -443,58 +442,41 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     // Clear the render targets.
     {
-        //FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
-        FLOAT clearColor[] = { 0.f, 1.f, 0.f, 1.0f };
+        FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
 
         commandList->ClearTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::Color0), clearColor);
         commandList->ClearDepthStencilTexture(m_RenderTarget.GetTexture(core::AttachmentPoint::DepthStencil), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL);
     }
 
-    //commandList->SetRenderTarget(m_RenderTarget);
-    //commandList->SetViewport(m_RenderTarget.GetViewport());
-    //commandList->SetScissorRect(m_ScissorRect);
-
-
-    // Render the skybox.
-    {
-        //m_envRenderPass.OnRender(commandList, e);
-    }
-
-    //commandList->SetPipelineState(m_ScenePipelineState);
-    //commandList->SetGraphicsRootSignature(m_SceneRootSignature)
-    //render scene
     {
         Mat matrices;
-
         auto model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
         m_DepthBufferRenderPass.OnRender(commandList, e);
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
-        //commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
-        
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);     
         m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
     }
 
     {
-        /*
-        m_ComputeLightCulling.StartCompute();
-        m_ComputeLightCulling.AttachGridViewFrustums(m_ComputeGridFrustums.GetGridFrustums());
-        m_ComputeLightCulling.AttachDepthTex(m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
-        m_ComputeLightCulling.Compute(m_ScreenToViewParams, m_CSDispatchParams);
-        */
+        ///*
+        m_ComputeLightCulling.StartCompute(commandList);
+        m_ComputeLightCulling.AttachGridViewFrustums(commandList, m_ComputeGridFrustums.GetGridFrustums());
+        m_ComputeLightCulling.AttachDepthTex(commandList, m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
+        m_ComputeLightCulling.Compute(commandList, m_ScreenToViewParams, m_CSDispatchParams);
+        //*/
     }
 
     {
+        /*
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
         m_DebugDepthBufferRenderPass.OnPreRender(commandList, e);
-        //commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             0, 0, &m_DepthBufferRenderPass.GetSRV());
         m_DebugDepthBufferRenderPass.OnRender(commandList, e);
-        
+       */
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -502,11 +484,9 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-    //commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    //commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    //commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-    //    0, 0, &m_DepthBufferRenderPass.GetSRV());
-    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->TransitionBarrier(m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    //commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     commandList->Draw(3);
 

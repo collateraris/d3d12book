@@ -26,21 +26,21 @@ namespace dx12demo::core
 
         void InitDebugTex(int screenW, int screenH);
 
-        void InitLightIndexListBuffers(const DispatchParams& dispatchPar, uint32_t average_overlapping_lights_per_tile);
+        void InitLightIndexListBuffers(std::shared_ptr<CommandList>& commandList, const DispatchParams& dispatchPar, uint32_t average_overlapping_lights_per_tile);
 
         void InitLightGridTexture(const DispatchParams& dispatchPar);
 
-        void InitLightsBuffer(const std::vector<Light>& lights);
+        void InitLightsBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights);
 
-        void StartCompute();
+        void StartCompute(std::shared_ptr<CommandList>& commandList);
 
         void AttachNumLights(int num);
 
-        void AttachDepthTex(const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc = nullptr);
+        void AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc = nullptr);
 
-        void AttachGridViewFrustums(const StructuredBuffer& frustums);
+        void AttachGridViewFrustums(std::shared_ptr<CommandList>& commandList, const StructuredBuffer& frustums);
 
-        void Compute(const ScreenToViewParams& params, const DispatchParams& dispatchPar);
+        void Compute(std::shared_ptr<CommandList>& commandList, const ScreenToViewParams& params, const DispatchParams& dispatchPar);
 
         const Texture& GetDebugTex() const;
 
@@ -63,9 +63,6 @@ namespace dx12demo::core
             bAttachDepthTex,
             bAttachGridViewFrustums
         };
-
-        std::shared_ptr<CommandList> m_CurrCommandList;
-        bool bStartComputeInit = false;
 
         RootSignature m_RootSignature;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;

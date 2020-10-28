@@ -44,6 +44,7 @@ LightCulling::LightCulling()
     rootParameters[ComputeParams::b0ScreenToViewParamsCB].InitAsConstantBufferView(0, 0);
     rootParameters[ComputeParams::b1DispatchParamsCB].InitAsConstantBufferView(1, 0);
     rootParameters[ComputeParams::b2NumLightsCB].InitAsConstantBufferView(2, 0);
+
     CD3DX12_DESCRIPTOR_RANGE1 depthTexVSDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
     rootParameters[ComputeParams::t0DepthTextureVSTex].InitAsDescriptorTable(1, &depthTexVSDescrRange);
     CD3DX12_DESCRIPTOR_RANGE1 gridFrustumDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
@@ -52,6 +53,7 @@ LightCulling::LightCulling()
     rootParameters[ComputeParams::t2LightCountHeatMapTex].InitAsDescriptorTable(1, &lightCountHeatMapDescrRange);
     CD3DX12_DESCRIPTOR_RANGE1 lightsDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
     rootParameters[ComputeParams::t3LightsSB].InitAsDescriptorTable(1, &lightsDescrRange);
+
     CD3DX12_DESCRIPTOR_RANGE1 debugTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
     rootParameters[ComputeParams::u0DebugTextureTex].InitAsDescriptorTable(1, &debugTexDescrRange);
     CD3DX12_DESCRIPTOR_RANGE1 opaqueLightIndexCounterDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 1);
@@ -74,7 +76,6 @@ LightCulling::LightCulling()
         D3D12_TEXTURE_ADDRESS_MODE_CLAMP,  // addressV
         D3D12_TEXTURE_ADDRESS_MODE_CLAMP); // addressW
 
-
     CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
     rootSignatureDescription.Init_1_1(ComputeParams::NumRootParameters, rootParameters, 1, &linearClamp, D3D12_ROOT_SIGNATURE_FLAG_NONE);
 
@@ -96,13 +97,17 @@ LightCulling::LightCulling()
 
     ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&m_PipelineState)));
 
-    auto commandList = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE)->GetCommandList();
+    auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
+    auto commandList = commandQueue->GetCommandList();
     commandList->LoadTextureFromFile(m_LightCullingHeatMap, L"Assets/Textures/LightCountHeatMap.png");
 
     // Light list index counter (initial value buffer - required to reset the light list index counters back to 0)
     std::vector<uint32_t> lightListIndexCounterInitialValue = { 0 };
     commandList->CopyStructuredBuffer(m_LightListIndexCounterOpaqueBuffer, lightListIndexCounterInitialValue);
     commandList->CopyStructuredBuffer(m_LightListIndexCounterTransparentBuffer, lightListIndexCounterInitialValue);
+
+    auto fenceValue = commandQueue->ExecuteCommandList(commandList);
+    commandQueue->WaitForFenceValue(fenceValue);
 }
 
 LightCulling::~LightCulling()
@@ -110,11 +115,10 @@ LightCulling::~LightCulling()
 
 }
 
-void LightCulling::StartCompute()
+void LightCulling::StartCompute(std::shared_ptr<CommandList>& commandList)
 {
-    m_CurrCommandList = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE)->GetCommandList();
-    m_CurrCommandList->SetComputeRootSignature(m_RootSignature);
-    m_CurrCommandList->SetPipelineState(m_PipelineState);
+    commandList->SetComputeRootSignature(m_RootSignature);
+    commandList->SetPipelineState(m_PipelineState);
 
     m_CurrState.set(EBitsetStates::bStartCompute);
 }
@@ -131,15 +135,13 @@ void LightCulling::InitDebugTex(int screenW, int screenH)
     m_CurrState.set(EBitsetStates::bInitDebugTex);
 }
 
-void LightCulling::InitLightIndexListBuffers(const DispatchParams& dispatchPar, uint32_t average_overlapping_lights_per_tile)
+void LightCulling::InitLightIndexListBuffers(std::shared_ptr<CommandList>& commandList, const DispatchParams& dispatchPar, uint32_t average_overlapping_lights_per_tile)
 {
-    assert(m_CurrState.test(EBitsetStates::bStartCompute));
-
     const auto& numThreads = dispatchPar.m_NumThreads;
     auto lightsNum = numThreads.x * numThreads.y * numThreads.z * average_overlapping_lights_per_tile;
     std::vector<uint32_t> bufferSize(lightsNum, 0);
-    m_CurrCommandList->CopyStructuredBuffer(m_LightIndexListOpaqueBuffer, bufferSize);
-    m_CurrCommandList->CopyStructuredBuffer(m_LightIndexListTransparentBuffer, bufferSize);
+    commandList->CopyStructuredBuffer(m_LightIndexListOpaqueBuffer, bufferSize);
+    commandList->CopyStructuredBuffer(m_LightIndexListTransparentBuffer, bufferSize);
 
     m_CurrState.set(EBitsetStates::bInitLightIndexBuffer);
 }
@@ -160,11 +162,9 @@ void LightCulling::InitLightGridTexture(const DispatchParams& dispatchPar)
     m_CurrState.set(EBitsetStates::bInitLightGridTex);
 }
 
-void LightCulling::InitLightsBuffer(const std::vector<Light>& lights)
+void LightCulling::InitLightsBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights)
 {
-    assert(m_CurrState.test(EBitsetStates::bStartCompute));
-
-    m_CurrCommandList->CopyStructuredBuffer(m_LightsBuffer, lights);
+    commandList->CopyStructuredBuffer(m_LightsBuffer, lights);
     m_CurrState.set(EBitsetStates::bInitLightsBuffer);
 }
 
@@ -174,25 +174,26 @@ void LightCulling::AttachNumLights(int num)
     m_CurrState.set(EBitsetStates::bAttachNumLights);
 }
 
-void LightCulling::AttachDepthTex(const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc/* = nullptr*/)
+void LightCulling::AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc/* = nullptr*/)
 {
     assert(m_CurrState.test(EBitsetStates::bStartCompute));
-   
-    m_CurrCommandList->SetShaderResourceView(ComputeParams::t0DepthTextureVSTex, 0, depthTex,
+    
+    commandList->TransitionBarrier(depthTex, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+    commandList->SetShaderResourceView(ComputeParams::t0DepthTextureVSTex, 0, depthTex,
         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
         0, 0, srvDesc);
     m_CurrState.set(EBitsetStates::bAttachDepthTex);
 }
 
-void LightCulling::AttachGridViewFrustums(const StructuredBuffer& frustums)
+void LightCulling::AttachGridViewFrustums(std::shared_ptr<CommandList>& commandList, const StructuredBuffer& frustums)
 {
     assert(m_CurrState.test(EBitsetStates::bStartCompute));
 
-    m_CurrCommandList->SetShaderResourceView(ComputeParams::t1FrustumsSB, 0, frustums);
+    commandList->SetShaderResourceView(ComputeParams::t1FrustumsSB, 0, frustums);
     m_CurrState.set(EBitsetStates::bAttachGridViewFrustums);
 }
 
-void LightCulling::Compute(const ScreenToViewParams& params, const DispatchParams& dispatchPar)
+void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const ScreenToViewParams& params, const DispatchParams& dispatchPar)
 {
     assert(m_CurrState.test(EBitsetStates::bStartCompute));
     assert(m_CurrState.test(EBitsetStates::bAttachDepthTex));
@@ -206,23 +207,23 @@ void LightCulling::Compute(const ScreenToViewParams& params, const DispatchParam
     m_CurrState.reset(EBitsetStates::bStartCompute);
     m_CurrState.reset(EBitsetStates::bAttachDepthTex);
 
-    m_CurrCommandList->SetComputeDynamicConstantBuffer(ComputeParams::b0ScreenToViewParamsCB, params);
-    m_CurrCommandList->SetComputeDynamicConstantBuffer(ComputeParams::b1DispatchParamsCB, dispatchPar);
-    m_CurrCommandList->SetComputeDynamicConstantBuffer(ComputeParams::b2NumLightsCB, m_NumLights);
+    commandList->SetComputeDynamicConstantBuffer(ComputeParams::b0ScreenToViewParamsCB, params);
+    commandList->SetComputeDynamicConstantBuffer(ComputeParams::b1DispatchParamsCB, dispatchPar);
+    commandList->SetComputeDynamicConstantBuffer(ComputeParams::b2NumLightsCB, m_NumLights);
 
-    m_CurrCommandList->SetShaderResourceView(ComputeParams::t2LightCountHeatMapTex, 0, m_LightCullingHeatMap);
-    m_CurrCommandList->SetShaderResourceView(ComputeParams::t3LightsSB, 0, m_LightsBuffer);
+    commandList->SetShaderResourceView(ComputeParams::t2LightCountHeatMapTex, 0, m_LightCullingHeatMap);
+    commandList->SetShaderResourceView(ComputeParams::t3LightsSB, 0, m_LightsBuffer);
 
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u0DebugTextureTex, 0, m_DebugTex);
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u1OpaqueLightIndexCounterSB, 0, m_LightListIndexCounterOpaqueBuffer);
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u2TransparentLightIndexCounterSB, 0, m_LightListIndexCounterTransparentBuffer);
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u3OpaqueLightIndexListSB, 0, m_LightIndexListOpaqueBuffer);
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u4TransparentLightIndexListSB, 0, m_LightIndexListTransparentBuffer);
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u5OpaqueLightGridTex, 0, m_OpaqueLightGrid);
-    m_CurrCommandList->SetUnorderedAccessView(ComputeParams::u6TransparentLightGridTex, 0, m_TransparentLightGrid);
+    commandList->SetUnorderedAccessView(ComputeParams::u0DebugTextureTex, 0, m_DebugTex);
+    commandList->SetUnorderedAccessView(ComputeParams::u1OpaqueLightIndexCounterSB, 0, m_LightListIndexCounterOpaqueBuffer);
+    commandList->SetUnorderedAccessView(ComputeParams::u2TransparentLightIndexCounterSB, 0, m_LightListIndexCounterTransparentBuffer);
+    commandList->SetUnorderedAccessView(ComputeParams::u3OpaqueLightIndexListSB, 0, m_LightIndexListOpaqueBuffer);
+    commandList->SetUnorderedAccessView(ComputeParams::u4TransparentLightIndexListSB, 0, m_LightIndexListTransparentBuffer);
+    commandList->SetUnorderedAccessView(ComputeParams::u5OpaqueLightGridTex, 0, m_OpaqueLightGrid);
+    commandList->SetUnorderedAccessView(ComputeParams::u6TransparentLightGridTex, 0, m_TransparentLightGrid);
 
     const auto& numThreads = dispatchPar.m_NumThreads;
-    m_CurrCommandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
+    commandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
 }
 
 const Texture& LightCulling::GetDebugTex() const
