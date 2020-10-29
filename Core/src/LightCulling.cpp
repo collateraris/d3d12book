@@ -162,16 +162,12 @@ void LightCulling::InitLightGridTexture(const DispatchParams& dispatchPar)
     m_CurrState.set(EBitsetStates::bInitLightGridTex);
 }
 
-void LightCulling::InitLightsBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights)
+
+void LightCulling::AttachLightsInBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights)
 {
     commandList->CopyStructuredBuffer(m_LightsBuffer, lights);
-    m_CurrState.set(EBitsetStates::bInitLightsBuffer);
-}
-
-void LightCulling::AttachNumLights(int num)
-{
-    m_NumLights.NUM_LIGHTS = num;
-    m_CurrState.set(EBitsetStates::bAttachNumLights);
+    m_NumLights.NUM_LIGHTS = lights.size();
+    m_CurrState.set(EBitsetStates::bAttachLightsInBuffer);
 }
 
 void LightCulling::AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc/* = nullptr*/)
@@ -197,15 +193,15 @@ void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const Scre
 {
     assert(m_CurrState.test(EBitsetStates::bStartCompute));
     assert(m_CurrState.test(EBitsetStates::bAttachDepthTex));
-    assert(m_CurrState.test(EBitsetStates::bAttachNumLights));
+    assert(m_CurrState.test(EBitsetStates::bAttachLightsInBuffer));
     assert(m_CurrState.test(EBitsetStates::bAttachGridViewFrustums));
     assert(m_CurrState.test(EBitsetStates::bInitDebugTex));
     assert(m_CurrState.test(EBitsetStates::bInitLightGridTex));
     assert(m_CurrState.test(EBitsetStates::bInitLightIndexBuffer));
-    assert(m_CurrState.test(EBitsetStates::bInitLightsBuffer));
 
     m_CurrState.reset(EBitsetStates::bStartCompute);
     m_CurrState.reset(EBitsetStates::bAttachDepthTex);
+    m_CurrState.reset(EBitsetStates::bAttachLightsInBuffer);
 
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::b0ScreenToViewParamsCB, params);
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::b1DispatchParamsCB, dispatchPar);
@@ -229,4 +225,19 @@ void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const Scre
 const Texture& LightCulling::GetDebugTex() const
 {
     return m_DebugTex;
+}
+
+const Texture& LightCulling::GetOpaqueLightGrid() const
+{
+    return m_OpaqueLightGrid;
+}
+
+const StructuredBuffer& LightCulling::GetOpaqueLightIndexList() const
+{
+    return m_LightIndexListOpaqueBuffer;
+}
+
+const StructuredBuffer& LightCulling::GetLightsBuffer() const
+{
+    return m_LightsBuffer;
 }

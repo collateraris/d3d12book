@@ -30,11 +30,9 @@ namespace dx12demo::core
 
         void InitLightGridTexture(const DispatchParams& dispatchPar);
 
-        void InitLightsBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights);
-
         void StartCompute(std::shared_ptr<CommandList>& commandList);
 
-        void AttachNumLights(int num);
+        void AttachLightsInBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights);
 
         void AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc = nullptr);
 
@@ -43,6 +41,12 @@ namespace dx12demo::core
         void Compute(std::shared_ptr<CommandList>& commandList, const ScreenToViewParams& params, const DispatchParams& dispatchPar);
 
         const Texture& GetDebugTex() const;
+
+        const Texture& GetOpaqueLightGrid() const;
+
+        const StructuredBuffer& GetOpaqueLightIndexList() const;
+
+        const StructuredBuffer& GetLightsBuffer() const;
 
     private:
 
@@ -58,8 +62,7 @@ namespace dx12demo::core
             bInitDebugTex,
             bInitLightIndexBuffer,
             bInitLightGridTex,
-            bInitLightsBuffer,
-            bAttachNumLights,
+            bAttachLightsInBuffer,
             bAttachDepthTex,
             bAttachGridViewFrustums
         };

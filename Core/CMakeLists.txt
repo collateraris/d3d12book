@@ -21,6 +21,7 @@ set( HEADER_FILES
 	inc/Frustum.h
 	inc/FrustumCullRenderPass.h
     inc/Events.h
+	inc/ForwardPlusRenderPass.h
     inc/Game.h
     inc/GenerateMipsPSO.h
 	inc/GeometryPrimitive.h
@@ -74,6 +75,7 @@ set( SOURCE_FILES
     src/DescriptorAllocatorPage.cpp
     src/DynamicDescriptorHeap.cpp
 	src/EnvironmentMapRenderPass.cpp
+	src/ForwardPlusRenderPass.cpp
 	src/Frustum.cpp
 	src/FrustumCullRenderPass.cpp
 	src/QuadTree.cpp
@@ -153,7 +155,9 @@ set( SHADER_FILES
 	shaders/DebugDepthBuffer_PS.hlsl
 	shaders/DebugDepthBuffer_VS.hlsl
 	shaders/Quad_PS.hlsl
-	shaders/Quad_VS.hlsl		
+	shaders/Quad_VS.hlsl
+	shaders/ForwardPlus_PS.hlsl
+	shaders/ForwardPlus_VS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -217,6 +221,18 @@ set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/ForwardPlus_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_ForwardPlus_VS
+)
+
+set_source_files_properties( shaders/ForwardPlus_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_ForwardPlus_PS
 )
 
 set_source_files_properties( shaders/DepthBuffer_VS.hlsl

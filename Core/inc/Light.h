@@ -123,6 +123,8 @@ namespace dx12demo::core
          */
         float       m_Intensity;
 
+        float       m_Attenuation;
+
         /**
          * Disable or enable the light.
          */

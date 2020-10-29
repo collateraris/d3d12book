@@ -16,6 +16,7 @@
 #include <LightCulling.h>
 #include <DepthBufferRenderPass.h>
 #include <DebugDepthBufferRenderPass.h>
+#include <ForwardPlusRenderPass.h>
 #include <QuadRenderPass.h>
 
 #include <EnvironmentMapRenderPass.h>
@@ -28,9 +29,8 @@ namespace dx12demo
 	{
         struct LightBuffer
         {
-            DirectX::XMFLOAT4 ambientColor;
-            DirectX::XMFLOAT4 diffuseColor;
-            DirectX::XMFLOAT3 lightDirection;
+            DirectX::XMVECTOR posWS;
+            DirectX::XMVECTOR dirWS;
         };
 
 	public:
@@ -88,9 +88,11 @@ namespace dx12demo
         core::EnvironmentMapRenderPass m_envRenderPass;
         core::DepthBufferRenderPass m_DepthBufferRenderPass;
         core::DebugDepthBufferRenderPass m_DebugDepthBufferRenderPass;
+        core::ForwardPlusRenderPass m_ForwardPlusRenderPass;
         core::QuadRenderPass m_QuadRenderPass;
 
         std::vector<core::Light> m_Lights;
+        std::vector<LightBuffer> m_LightsBufferData;
 
         float m_FoV;
 
@@ -101,7 +103,6 @@ namespace dx12demo
         D3D12_RECT m_ScissorRect;
 
         core::Scene m_Sponza;
-        LightBuffer m_DirLight;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
         core::RootSignature m_SceneRootSignature;
@@ -124,6 +125,7 @@ namespace dx12demo
         core::ScreenToViewParams m_ScreenToViewParams;
 
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_MaterialDrawFun;
+        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_ForwardPlusDrawFun;
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_DepthBufferDrawFun;
 
         int m_Width;

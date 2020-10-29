@@ -65,7 +65,7 @@ struct Light
     /**
     * The half angle of the spotlight cone.
     */
-    float    SpotlightAngle;
+    float    SpotAngle;
     /**
     * The range of the light.
     */
@@ -75,6 +75,11 @@ struct Light
      * The intensity of the light.
      */
     float    Intensity;
+
+    /**
+     * The attenuation of the light.
+     */
+    float    Attenuation;
 
     /**
     * Disable or enable the light.
@@ -94,6 +99,12 @@ struct Light
     float2  Padding;
     //--------------------------------------------------------------( 16 bytes )
     //--------------------------------------------------------------( 16 * 7 = 112 bytes )
+};
+
+struct LightResult
+{
+    float4 Diffuse;
+    float4 Specular;
 };
 
 struct ComputeShaderInput
@@ -134,6 +145,24 @@ bool ConeInsidePlane(in Cone cone, in Plane plane);
 bool PointInsidePlane(in float3 p, in Plane plane);
 
 bool ConeInsideFrustum(in Cone cone, in Frustum frustum, float zNear, float zFar);
+
+float3 ExpandNormal(in float3 n);
+
+float3 DoNormalMapping(in float3 normalFromTex, in float3x3 TBN);
+
+float DoAttenuation(float attenuation, float distance);
+
+float DoDiffuse(in float3 N, in float3 L);
+
+float DoSpecular(in float3 V, in float3 N, in float3 L);
+
+float DoSpotCone(in float3 spotDir, in float3 L, in float spotAngle);
+
+void DoPointLight(in Light light, in float3 V, in float3 P, in float3 N, out LightResult result);
+
+void DoSpotLight(in Light light, in float3 V, in float3 P, in float3 N, out LightResult result);
+
+void DoDirectionalLight(in Light light, in float3 V, float3 P, float3 N, out LightResult result);
 
 // Convert clip space coordinates to view space
 void ClipToView(in float4 clip, in float4x4 inverseProjection, out float4 view)
@@ -237,6 +266,79 @@ bool PointInsidePlane(in float3 p, in Plane plane)
 {
     return dot(plane.N, p) - plane.d < 0;
 };
+
+float3 ExpandNormal(in float3 n)
+{
+    return n * 2.0f - 1.0f;
+}
+
+float3 DoNormalMapping(in float3 normalFromTex, in float3x3 TBN)
+{
+    float3 normal = ExpandNormal(normalFromTex);
+    normal = mul(TBN, normal);
+    return normalize(normal);
+}
+
+float DoAttenuation(float attenuation, float distance)
+{
+    return 1.0f / (1.0f + attenuation * distance * distance);
+}
+
+float DoDiffuse(in float3 N, in float3 L)
+{
+    return max(0, dot(N, L));
+}
+
+float DoSpecular(in float3 V, in float3 N, in float3 L)
+{
+    float3 R = normalize(reflect(-L, N));
+    float RdotV = max(0, dot(R, V));
+
+    const float specularPower = 16;
+    return pow(RdotV, specularPower);
+}
+
+float DoSpotCone(in float3 spotDir, in float3 L, in float spotAngle)
+{
+    float minCos = cos(spotAngle);
+    float maxCos = (minCos + 1.0f) / 2.0f;
+
+    float cosAngle = dot(spotDir, -L);
+    return smoothstep(minCos, maxCos, cosAngle);
+}
+
+void DoPointLight(in Light light, in float3 V, in float3 P, in float3 N, out LightResult result)
+{
+    float3 L = (light.PositionVS.xyz - P);
+    float d = length(L);
+    L = L / d;
+
+    float attenuation = DoAttenuation(light.Attenuation, d);
+
+    result.Diffuse = DoDiffuse(N, L) * attenuation * light.Color * light.Intensity;
+    result.Specular = DoSpecular(V, N, L) * attenuation * light.Color * light.Intensity;
+}
+
+void DoSpotLight(in Light light, in float3 V, in float3 P, in float3 N, out LightResult result)
+{
+    float3 L = (light.PositionVS.xyz - P);
+    float d = length(L);
+    L = L / d;
+
+    float attenuation = DoAttenuation(light.Attenuation, d);
+    float spotIntensity = DoSpotCone(light.DirectionVS.xyz, L, light.SpotAngle);
+
+    result.Diffuse = DoDiffuse(N, L) * attenuation * spotIntensity * light.Color * light.Intensity;
+    result.Specular = DoSpecular(V, N, L) * attenuation * spotIntensity * light.Color * light.Intensity;
+}
+
+void DoDirectionalLight(in Light light, in float3 V, float3 P, float3 N, out LightResult result)
+{
+    float4 L = normalize(-light.DirectionVS);
+
+    result.Diffuse = DoDiffuse(N, L) * light.Intensity;
+    result.Specular = DoSpecular(V, N, L) * light.Intensity;
+}
 
 // it`s fake. not work
 [numthreads(1, 1, 1)]

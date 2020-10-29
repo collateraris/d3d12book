@@ -117,7 +117,8 @@ void main(ComputeShaderInput IN)
 
     // Cull lights
     // Each thread in a group will cull 1 light until all lights have been culled.
-    for (uint i = IN.groupIndex; i < bLightInfo.NUM_LIGHTS; i += BLOCK_SIZE * BLOCK_SIZE)
+    uint sqBLOCK_SIZE = BLOCK_SIZE * BLOCK_SIZE;
+    for (uint i = IN.groupIndex; i < bLightInfo.NUM_LIGHTS; i += sqBLOCK_SIZE)
     {
         if (Lights[i].Enabled)
         {
@@ -142,7 +143,7 @@ void main(ComputeShaderInput IN)
             break;
             case SPOT_LIGHT:
             {
-                float coneRadius = tan(radians(light.SpotlightAngle)) * light.Range;
+                float coneRadius = tan(radians(light.SpotAngle)) * light.Range;
                 Cone cone = { light.PositionVS.xyz, light.Range, light.DirectionVS.xyz, coneRadius };
                 if (ConeInsideFrustum(cone, gsGroupFrustum, nearClipVS, maxDepthVS))
                 {
@@ -182,12 +183,12 @@ void main(ComputeShaderInput IN)
 
     GroupMemoryBarrierWithGroupSync();
 
-    for (uint i = IN.groupIndex; i < o_gsLightCount; i+= BLOCK_SIZE * BLOCK_SIZE)
+    for (uint i = IN.groupIndex; i < o_gsLightCount; i += sqBLOCK_SIZE)
     {
         o_uLightIndexList[o_gsLightIndexStartOffset + i] = o_gsLightList[i];
     }
 
-    for (uint i = IN.groupIndex; i < t_gsLightCount; i += BLOCK_SIZE * BLOCK_SIZE)
+    for (uint i = IN.groupIndex; i < t_gsLightCount; i += sqBLOCK_SIZE)
     {
         t_uLightIndexList[t_gsLightIndexStartOffset + i] = t_gsLightList[i];
     }
