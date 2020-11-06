@@ -17,6 +17,8 @@
 #include <Texture.h>
 #include <UploadBuffer.h>
 #include <VertexBuffer.h>
+#include <Scene.h>
+#include <SceneNode.h>
 
 using namespace dx12demo::core;
 
@@ -272,6 +274,15 @@ void CommandList::SetGraphicsDynamicConstantBuffer(uint32_t rootParameterIndex, 
     m_d3d12CommandList->SetGraphicsRootConstantBufferView(rootParameterIndex, heapAllococation.GPU);
 }
 
+void CommandList::SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, size_t sizeInBytes, const void* bufferData)
+{
+    // Constant buffers must be 256-byte aligned.
+    auto heapAllococation = m_UploadBuffer->Allocate(sizeInBytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    memcpy(heapAllococation.CPU, bufferData, sizeInBytes);
+
+    m_d3d12CommandList->SetComputeRootConstantBufferView(rootParameterIndex, heapAllococation.GPU);
+}
+
 void CommandList::SetShaderResourceView(
     uint32_t rootParameterIndex,
     uint32_t descriptorOffset,
@@ -397,11 +408,13 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         }
         else
         {
+            ThrowIfFailed(CoInitializeEx(nullptr, COINIT_MULTITHREADED));
             ThrowIfFailed(LoadFromWICFile(
                 fileName.c_str(),
                 WIC_FLAGS_FORCE_RGB,
                 &metadata,
                 scratchImage));
+            CoUninitialize();
         }
 
         D3D12_RESOURCE_DESC textureDesc = {};
@@ -469,7 +482,8 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
             static_cast<uint32_t>(subresources.size()),
             subresources.data());
 
-        if (subresources.size() < textureResource->GetDesc().MipLevels)
+        if (subresources.size() < textureResource->GetDesc().MipLevels
+            && texture.IsUAVCompatibleFormat())
         {
             GenerateMips(texture);
         }
@@ -477,6 +491,11 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         // Add the texture resource to the texture cache.
         CommandList::ms_TextureCache[fileName] = textureResource.Get();
     }
+}
+
+void CommandList::LoadSceneFromFile(Scene& scene, const std::wstring& filname)
+{
+
 }
 
 void CommandList::CopyTextureSubresource(Texture& texture, uint32_t firstSubresource, uint32_t numSubresources, D3D12_SUBRESOURCE_DATA* subresourceData)
@@ -839,6 +858,11 @@ void CommandList::SetCompute32BitConstants(uint32_t rootParameterIndex, uint32_t
     m_d3d12CommandList->SetComputeRoot32BitConstants(rootParameterIndex, numConstants, constants, 0);
 }
 
+void CommandList::SetComputeRootUnorderedAccessView(uint32_t rootParameterIndex, Resource& resource)
+{
+    m_d3d12CommandList->SetComputeRootUnorderedAccessView(rootParameterIndex, resource.GetD3D12Resource()->GetGPUVirtualAddress());
+}
+
 void CommandList::SetVertexBuffer(uint32_t slot, const VertexBuffer& vertexBuffer)
 {
     TransitionBarrier(vertexBuffer, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
@@ -900,6 +924,16 @@ void CommandList::SetGraphicsDynamicStructuredBuffer(uint32_t slot, size_t numEl
     memcpy(heapAllocation.CPU, bufferData, bufferSize);
 
     m_d3d12CommandList->SetGraphicsRootShaderResourceView(slot, heapAllocation.GPU);
+}
+
+void CommandList::SetComputeDynamicStructuredBuffer(uint32_t slot, size_t numElements, size_t elementSize, const void* bufferData)
+{
+    size_t bufferSize = numElements * elementSize;
+
+    auto heapAllocation = m_UploadBuffer->Allocate(bufferSize, elementSize);
+    memcpy(heapAllocation.CPU, bufferData, bufferSize);
+
+    m_d3d12CommandList->SetComputeRootShaderResourceView(slot, heapAllocation.GPU);
 }
 
 void CommandList::SetViewport(const D3D12_VIEWPORT& viewport)
@@ -969,6 +1003,24 @@ void CommandList::SetRenderTarget(const RenderTarget& renderTarget)
 
     m_d3d12CommandList->OMSetRenderTargets(static_cast<UINT>(renderTargetDescriptors.size()),
         renderTargetDescriptors.data(), FALSE, pDSV);
+}
+
+void CommandList::SetRenderTargetWriteDepthBufferOnly(const RenderTarget& renderTarget)
+{
+    const auto& depthTexture = renderTarget.GetTexture(AttachmentPoint::DepthStencil);
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE depthStencilDescriptor(D3D12_DEFAULT);
+    if (depthTexture.GetD3D12Resource())
+    {
+        TransitionBarrier(depthTexture, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+        depthStencilDescriptor = depthTexture.GetDepthStencilView();
+        TrackResource(depthTexture);
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE* pDSV = depthStencilDescriptor.ptr != 0 ? &depthStencilDescriptor : nullptr;
+
+    m_d3d12CommandList->OMSetRenderTargets(0, nullptr, FALSE, pDSV);
+   
 }
 
 void CommandList::SetDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE heapType, ID3D12DescriptorHeap* heap)
@@ -1099,4 +1151,9 @@ void CommandList::PanoToCubemap(Texture& cubemapTexture, const Texture& panoText
     {
         CopyResource(cubemapTexture, stagingTexture);
     }
+}
+
+void CommandList::SetStencilRef(UINT StencilRef)
+{
+    m_d3d12CommandList->OMSetStencilRef(StencilRef);
 }

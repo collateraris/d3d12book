@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.18.2 ) # Latest version of CMake when this file was created.
+cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this file was created.
 
 # Use solution folders to organize projects
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -7,6 +7,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib) # Output directory for static lib (.LIB)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Output directory for shared lib (.DLL)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Output directory for executables (.EXE)
+
+file(COPY Assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Debug/)
+file(COPY Assets DESTINATION ${CMAKE_BINARY_DIR}/bin/Release/)
 
 project( LearningDirectX12 LANGUAGES CXX )
 
@@ -29,8 +32,11 @@ set_target_properties( assimp IrrXML uninstall UpdateAssimpLibsDebugSymbolsAndDL
 add_subdirectory( DirectXTex )
 add_subdirectory( Core )
 add_subdirectory( Lesson1_cube3D )
+add_subdirectory( Lesson2_forward_shading )
+add_subdirectory( Terrain_Project )
+add_subdirectory( StencilDemo )
+add_subdirectory( ForwardPlusDemo )
 
-# Set the startup project.
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT Lesson1_cube3D
+    VS_STARTUP_PROJECT ForwardPlusDemo
 )

@@ -8,21 +8,24 @@
 
 #include <mutex>
 #include <unordered_map>
+#include <optional>
 
 namespace dx12demo::core
 {
 	class Texture : public Resource
 	{
     public:
-        explicit Texture(TextureUsage textureUsage = TextureUsage::Albedo,
+        explicit Texture(TextureUsage textureUsage = TextureUsage::None,
+            const std::wstring& name = L"");
+        explicit Texture(Microsoft::WRL::ComPtr<ID3D12Resource> resource,
+            TextureUsage textureUsage = TextureUsage::None,
             const std::wstring& name = L"");
         explicit Texture(const D3D12_RESOURCE_DESC& resourceDesc,
             const D3D12_CLEAR_VALUE* clearValue = nullptr,
-            TextureUsage textureUsage = TextureUsage::Albedo,
-            const std::wstring& name = L"");
-        explicit Texture(Microsoft::WRL::ComPtr<ID3D12Resource> resource,
-            TextureUsage textureUsage = TextureUsage::Albedo,
-            const std::wstring& name = L"");
+            TextureUsage textureUsage = TextureUsage::None,
+            const std::wstring& name = L"",
+            const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr,
+            const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr);
 
         Texture(const Texture& copy);
         Texture(Texture&& copy);
@@ -34,6 +37,8 @@ namespace dx12demo::core
 
         const TextureUsage& GetTextureUsage() const;
 
+        bool IsEmpty() const;
+
         void SetTextureUsage(const TextureUsage& textureUsage);
 
         /**
@@ -44,7 +49,7 @@ namespace dx12demo::core
         /**
          * Create SRV and UAVs for the resource.
          */
-        virtual void CreateViews();
+        virtual void CreateViews(const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr, const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr);
 
         /**
         * Get the SRV for a resource.
@@ -66,6 +71,8 @@ namespace dx12demo::core
         bool CheckUAVSupport() const;
 
         bool CheckDSVSupport() const;
+
+        bool IsUAVCompatibleFormat();
 
         static bool IsUAVCompatibleFormat(DXGI_FORMAT format);
         static bool IsSRGBFormat(DXGI_FORMAT format);
@@ -91,6 +98,9 @@ namespace dx12demo::core
         mutable std::mutex m_ShaderResourceViewsMutex;
         mutable std::mutex m_UnorderedAccessViewsMutex;
 
-        TextureUsage m_TextureUsage;
+        TextureUsage m_TextureUsage = TextureUsage::None;
+        
+        std::optional<D3D12_RENDER_TARGET_VIEW_DESC> m_RTV;
+        std::optional<D3D12_DEPTH_STENCIL_VIEW_DESC> m_DSV;
 	};
 }

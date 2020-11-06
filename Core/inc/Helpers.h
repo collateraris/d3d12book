@@ -4,6 +4,10 @@
 #include <Windows.h> // For HRESULT
 
 #include <comdef.h> // For _com_error class (used to decode HR result codes).
+#include <stdio.h>
+#include <vector>
+#include <cassert>
+
 
 // From DXSampleHelper.h 
 // Source: https://github.com/Microsoft/DirectX-Graphics-Samples
@@ -21,6 +25,74 @@ inline void ThrowIfFailed(HRESULT hr)
 
 namespace Math
 {
+    inline DirectX::XMFLOAT3 float3Substruct(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        DirectX::XMFLOAT3 result;
+
+        result.x = a.x - b.x;
+        result.y = a.y - b.y;
+        result.z = a.z - b.z;
+
+        return std::move(result);
+    };
+
+    inline float float3Radius(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        float result = sqrtf((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
+
+        return result;
+    };
+
+    inline DirectX::XMFLOAT3 float3Cross(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        DirectX::XMFLOAT3 result;
+
+        result.x = a.y * b.z - a.z * b.y;
+        result.y = a.z * b.x - a.x * b.z;
+        result.z = a.x * b.y - a.y * b.x;
+
+        return std::move(result);
+    };
+
+    inline float float3Dot(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+    };
+
+    inline void float3Add(DirectX::XMFLOAT3& summator, const DirectX::XMFLOAT3& a)
+    {
+        summator.x += a.x;
+        summator.y += a.y;
+        summator.z += a.z;
+    }
+
+    inline void float3Mult(DirectX::XMFLOAT3& a, float scalar)
+    {
+        a.x *= scalar;
+        a.y *= scalar;
+        a.z *= scalar;
+    }
+
+    inline void float3Div(DirectX::XMFLOAT3& a, float scalar)
+    {
+        float invScalar = 1.f / scalar;
+        a.x *= invScalar;
+        a.y *= invScalar;
+        a.z *= invScalar;
+    }
+
+    inline float float3Len(const DirectX::XMFLOAT3& a)
+    {
+        return sqrt((a.x * a.x) + (a.y * a.y) + (a.z * a.z));
+    }
+
+    inline void float3Normalized(DirectX::XMFLOAT3& a)
+    {
+        float lenght = float3Len(a);
+
+        float3Div(a, lenght);
+    };
+
     constexpr float PI = 3.1415926535897932384626433832795f;
     constexpr float _2PI = 2.0f * PI;
     // Convert radians to degrees.
@@ -278,6 +350,74 @@ namespace std
             return seed;
         }
     };
+}
+
+namespace helpers
+{
+
+    inline void LoadBitmap(const char* path, std::vector<char>& image, int& imageWidth, int& imageHeight)
+    {
+        FILE* filePtr;
+        int error;
+        unsigned int count;
+        BITMAPFILEHEADER bitmapFileHeader;
+        BITMAPINFOHEADER bitmapInfoHeader;
+        int imageSize, i, j, k, index;
+        unsigned char height;
+
+        // Open the height map file in binary.
+        error = fopen_s(&filePtr, path, "rb");
+        if (error != 0)
+        {
+            assert(false);
+            return;
+        }
+
+        // Read in the file header.
+        count = fread(&bitmapFileHeader, sizeof(BITMAPFILEHEADER), 1, filePtr);
+        if (count != 1)
+        {
+            assert(false);
+            return;
+        }
+
+        // Read in the bitmap info header.
+        count = fread(&bitmapInfoHeader, sizeof(BITMAPINFOHEADER), 1, filePtr);
+        if (count != 1)
+        {
+            assert(false);
+            return;
+        }
+
+        // Save the dimensions of the terrain.
+        imageWidth = bitmapInfoHeader.biWidth;
+        imageHeight = bitmapInfoHeader.biHeight;
+
+        // Calculate the size of the bitmap image data.
+        imageSize = imageHeight * imageWidth * 3;
+
+        // Allocate memory for the bitmap image data.
+        image.resize(imageSize);
+
+        // Move to the beginning of the bitmap data.
+        fseek(filePtr, bitmapFileHeader.bfOffBits, SEEK_SET);
+
+        // Read in the bitmap image data.
+        count = fread(image.data(), 1, imageSize, filePtr);
+        if (count != imageSize)
+        {
+            assert(false);
+            return;
+        }
+
+        // Close the file.
+        error = fclose(filePtr);
+        if (error != 0)
+        {
+            assert(false);
+            return;
+        }
+    }
 }
 
 #define STR1(x) #x

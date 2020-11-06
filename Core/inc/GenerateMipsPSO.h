@@ -35,6 +35,8 @@ namespace dx12demo::core
     public:
         GenerateMipsPSO();
 
+        virtual ~GenerateMipsPSO();
+
         const RootSignature& GetRootSignature() const
         {
             return m_RootSignature;

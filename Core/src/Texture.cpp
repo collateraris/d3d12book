@@ -12,16 +12,6 @@ Texture::Texture(TextureUsage textureUsage, const std::wstring& name)
 {
 }
 
-Texture::Texture(const D3D12_RESOURCE_DESC& resourceDesc,
-    const D3D12_CLEAR_VALUE* clearValue,
-    TextureUsage textureUsage,
-    const std::wstring& name)
-    : Resource(resourceDesc, clearValue, name)
-    , m_TextureUsage(textureUsage)
-{
-    CreateViews();
-}
-
 Texture::Texture(Microsoft::WRL::ComPtr<ID3D12Resource> resource,
     TextureUsage textureUsage,
     const std::wstring& name)
@@ -31,32 +21,86 @@ Texture::Texture(Microsoft::WRL::ComPtr<ID3D12Resource> resource,
     CreateViews();
 }
 
+Texture::Texture(const D3D12_RESOURCE_DESC& resourceDesc,
+    const D3D12_CLEAR_VALUE* clearValue/* = nullptr*/,
+    TextureUsage textureUsage/* = TextureUsage::None*/,
+    const std::wstring& name/* = L""*/,
+    const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc/* = nullptr*/,
+    const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc/* = nullptr*/)
+    : Resource(resourceDesc, clearValue, name)
+    , m_TextureUsage(textureUsage)
+{
+    CreateViews(rtvDesc, dsvDesc);
+}
+
 Texture::Texture(const Texture& copy)
     : Resource(copy)
 {
-    CreateViews();
+    const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr;
+    const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr;
+    if (copy.m_RTV.has_value())
+    {
+        rtvDesc = &copy.m_RTV.value();
+    }
+    if (copy.m_DSV.has_value())
+    {
+        dsvDesc = &copy.m_DSV.value();
+    }
+
+    CreateViews(rtvDesc, dsvDesc);
 }
 
 Texture::Texture(Texture&& copy)
     : Resource(copy)
 {
-    CreateViews();
+    const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr;
+    const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr;
+    if (copy.m_RTV.has_value())
+    {
+        rtvDesc = &copy.m_RTV.value();
+    }
+    if (copy.m_DSV.has_value())
+    {
+        dsvDesc = &copy.m_DSV.value();
+    }
+
+    CreateViews(rtvDesc, dsvDesc);
 }
 
 Texture& Texture::operator=(const Texture& other)
 {
     Resource::operator=(other);
 
-    CreateViews();
+    const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr;
+    const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr;
+    if (other.m_RTV.has_value())
+    {
+        rtvDesc = &other.m_RTV.value();
+    }
+    if (other.m_DSV.has_value())
+    {
+        dsvDesc = &other.m_DSV.value();
+    }
 
+    CreateViews(rtvDesc, dsvDesc);
     return *this;
 }
 Texture& Texture::operator=(Texture&& other)
 {
     Resource::operator=(other);
 
-    CreateViews();
+    const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc = nullptr;
+    const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc = nullptr;
+    if (other.m_RTV.has_value())
+    {
+        rtvDesc = &other.m_RTV.value();
+    }
+    if (other.m_DSV.has_value())
+    {
+        dsvDesc = &other.m_DSV.value();
+    }
 
+    CreateViews(rtvDesc, dsvDesc);
     return *this;
 }
 
@@ -66,6 +110,11 @@ Texture::~Texture()
 const TextureUsage& Texture::GetTextureUsage() const
 {
     return m_TextureUsage;
+}
+
+bool Texture::IsEmpty() const
+{
+    return m_TextureUsage == TextureUsage::None;
 }
 
 void Texture::SetTextureUsage(const TextureUsage& textureUsage)
@@ -105,7 +154,7 @@ void Texture::Resize(uint32_t width, uint32_t height, uint32_t depthOrArraySize/
     }
 }
 
-void Texture::CreateViews()
+void Texture::CreateViews(const D3D12_RENDER_TARGET_VIEW_DESC* rtvDesc/* = nullptr*/, const D3D12_DEPTH_STENCIL_VIEW_DESC* dsvDesc/* = nullptr*/)
 {
     if (m_d3d12Resource)
     {
@@ -118,16 +167,21 @@ void Texture::CreateViews()
             && CheckRTVSupport())
         {
             m_RenderTargetView = app.AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-            device->CreateRenderTargetView(m_d3d12Resource.Get(), nullptr, m_RenderTargetView.GetDescriptorHandle());
+            device->CreateRenderTargetView(m_d3d12Resource.Get(), rtvDesc, m_RenderTargetView.GetDescriptorHandle());
         }
 
         if ((desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) != 0 &&
             CheckDSVSupport())
         {
             m_DepthStencilView = app.AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-            device->CreateDepthStencilView(m_d3d12Resource.Get(), nullptr, m_DepthStencilView.GetDescriptorHandle());
+            device->CreateDepthStencilView(m_d3d12Resource.Get(), dsvDesc, m_DepthStencilView.GetDescriptorHandle());
         }
     }
+
+    if (rtvDesc)
+        m_RTV = *rtvDesc;
+    if (dsvDesc)
+        m_DSV = *dsvDesc;
 
     std::lock_guard<std::mutex> lock(m_ShaderResourceViewsMutex);
     std::lock_guard<std::mutex> guard(m_UnorderedAccessViewsMutex);
@@ -305,6 +359,11 @@ bool Texture::IsDepthFormat(DXGI_FORMAT format)
     default:
         return false;
     }
+}
+
+bool Texture::IsUAVCompatibleFormat()
+{
+    return Texture::IsUAVCompatibleFormat(GetD3D12ResourceDesc().Format);
 }
 
 DXGI_FORMAT Texture::GetTypelessFormat(DXGI_FORMAT format)

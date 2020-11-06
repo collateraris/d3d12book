@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.18.2 ) 
+cmake_minimum_required( VERSION 3.18.3 ) 
 
 set( HEADER_FILES 
     inc/Lesson1_cube3d.h
@@ -72,9 +72,9 @@ target_include_directories( Lesson1_cube3D
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 )
 
-# Enable C++17 compiler features.
+# Enable C++20 compiler features.
 target_compile_features( Lesson1_cube3D 
-	PUBLIC cxx_std_17
+	PUBLIC cxx_std_20
 )
 
 target_link_libraries( Lesson1_cube3D

@@ -4,6 +4,7 @@
 
 // The min/max macros conflict with like-named member functions.
 // Only use std::min and std::max defined in <algorithm>.
+
 #if defined(min)
 #undef min
 #endif
@@ -28,6 +29,7 @@ using namespace Microsoft::WRL;
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 #include <DirectXTex.h>
+#include <DirectXColors.h>
 
 using namespace DirectX;
 
@@ -46,6 +48,8 @@ using namespace DirectX;
 #include <unordered_map>
 #include <thread>
 #include <vector>
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 namespace fs = std::filesystem;
 

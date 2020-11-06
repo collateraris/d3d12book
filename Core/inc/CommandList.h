@@ -136,7 +136,7 @@ namespace dx12demo::core
 
         void LoadTextureFromFile(Texture& texture, const std::wstring& fileName, TextureUsage textureUsage = TextureUsage::Albedo);
 
-        //void LoadSceneFromFile(Scene& scene, const std::wstring& filname);
+        void LoadSceneFromFile(Scene& scene, const std::wstring& filname);
 
         void ClearTexture(const Texture& texture, const float clearColor[4]);
         void ClearDepthStencilTexture(const Texture& texture, D3D12_CLEAR_FLAGS clearFlags, float depth = 1.0f, uint8_t stencil = 0);
@@ -152,6 +152,17 @@ namespace dx12demo::core
         void SetGraphicsDynamicConstantBuffer(uint32_t rootParameterIndex, const T& data)
         {
             SetGraphicsDynamicConstantBuffer(rootParameterIndex, sizeof(T), &data);
+        }
+
+        /**
+         * Set a dynamic constant buffer data to an inline descriptor in the root
+         * signature.
+         */
+        void SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, size_t sizeInBytes, const void* bufferData);
+        template<typename T>
+        void SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, const T& data)
+        {
+            SetComputeDynamicConstantBuffer(rootParameterIndex, sizeof(T), &data);
         }
 
         /**
@@ -213,6 +224,16 @@ namespace dx12demo::core
             SetGraphicsDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
         }
 
+        /**
+         * Set compute structured buffer contents.
+         */
+        void SetComputeDynamicStructuredBuffer(uint32_t slot, size_t numElements, size_t elementSize, const void* bufferData);
+        template<typename T>
+        void SetComputeDynamicStructuredBuffer(uint32_t slot, const std::vector<T>& bufferData)
+        {
+            SetComputeDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
+        }
+
         void SetViewport(const D3D12_VIEWPORT& viewport);
         void SetViewports(const std::vector<D3D12_VIEWPORT>& viewports);
 
@@ -254,10 +275,15 @@ namespace dx12demo::core
             const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav = nullptr
         );
 
+        void SetComputeRootUnorderedAccessView(uint32_t rootParameterIndex, Resource& resource);
+
+
         /**
          * Set the render targets for the graphics rendering pipeline.
          */
         void SetRenderTarget(const RenderTarget& renderTarget);
+
+        void SetRenderTargetWriteDepthBufferOnly(const RenderTarget& renderTarget);
 
         /**
          * Generate mips for the texture.
@@ -303,6 +329,8 @@ namespace dx12demo::core
         std::shared_ptr<CommandList> GetGenerateMipsCommandList() const;
 
         void ReleaseTrackedObjects();
+
+        void SetStencilRef(UINT StencilRef);
 
     protected:
 

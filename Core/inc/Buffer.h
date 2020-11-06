@@ -18,7 +18,7 @@ namespace dx12demo::core
          * Create the views for the buffer resource.
          * Used by the CommandList when setting the buffer contents.
          */
-        virtual void CreateViews(size_t numElements, size_t elementSize) = 0;
+        virtual void CreateViews(size_t numElements = 0, size_t elementSize = 0) = 0;
 
     protected:
 
