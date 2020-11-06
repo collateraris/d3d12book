@@ -33,6 +33,7 @@ set( HEADER_FILES
     inc/KeyCodes.h
 	inc/Light.h
 	inc/LightCulling.h
+	inc/LightsToView.h
 	inc/Material.h
     inc/Mesh.h
 	inc/OcclusionCullRenderPass.h
@@ -86,6 +87,7 @@ set( SOURCE_FILES
     src/HighResolutionClock.cpp
     src/IndexBuffer.cpp
 	src/LightCulling.cpp
+	src/LightsToView.cpp
 	src/Material.cpp
     src/Mesh.cpp
 	src/OcclusionCullRenderPass.cpp
@@ -150,6 +152,7 @@ set( SHADER_FILES
     shaders/Skybox_PS.hlsl
 	shaders/GridViewFrustums_CS.hlsl
 	shaders/LightCulling_CS.hlsl
+	shaders/LightsToView_CS.hlsl
 	shaders/DepthBuffer_PS.hlsl
 	shaders/DepthBuffer_VS.hlsl
 	shaders/DebugDepthBuffer_PS.hlsl
@@ -287,6 +290,12 @@ set_source_files_properties( shaders/LightCulling_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_LightCulling_CS
+)
+
+set_source_files_properties( shaders/LightsToView_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_LightsToView_CS
 )
 
 set_source_files_properties( shaders/ImGUI_VS.hlsl

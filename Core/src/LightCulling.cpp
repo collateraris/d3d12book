@@ -5,6 +5,8 @@
 #include <CommandQueue.h>
 #include <LightCulling_CS.h>
 
+#include <iostream>
+
 using namespace dx12demo::core;
 
 namespace ComputeParams
@@ -13,11 +15,11 @@ namespace ComputeParams
     {
         b0ScreenToViewParamsCB,
         b1DispatchParamsCB,
-        b2NumLightsCB,
         t0DepthTextureVSTex,
         t1FrustumsSB,
         t2LightCountHeatMapTex,
         t3LightsSB,
+        t4NumLightsSB,
         u0DebugTextureTex,
         u1OpaqueLightIndexCounterSB,
         u2TransparentLightIndexCounterSB,
@@ -43,7 +45,6 @@ LightCulling::LightCulling()
     CD3DX12_ROOT_PARAMETER1 rootParameters[ComputeParams::NumRootParameters];
     rootParameters[ComputeParams::b0ScreenToViewParamsCB].InitAsConstantBufferView(0, 0);
     rootParameters[ComputeParams::b1DispatchParamsCB].InitAsConstantBufferView(1, 0);
-    rootParameters[ComputeParams::b2NumLightsCB].InitAsConstantBufferView(2, 0);
 
     CD3DX12_DESCRIPTOR_RANGE1 depthTexVSDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
     rootParameters[ComputeParams::t0DepthTextureVSTex].InitAsDescriptorTable(1, &depthTexVSDescrRange);
@@ -53,6 +54,8 @@ LightCulling::LightCulling()
     rootParameters[ComputeParams::t2LightCountHeatMapTex].InitAsDescriptorTable(1, &lightCountHeatMapDescrRange);
     CD3DX12_DESCRIPTOR_RANGE1 lightsDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
     rootParameters[ComputeParams::t3LightsSB].InitAsDescriptorTable(1, &lightsDescrRange);
+    CD3DX12_DESCRIPTOR_RANGE1 lightsNumDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
+    rootParameters[ComputeParams::t4NumLightsSB].InitAsDescriptorTable(1, &lightsNumDescrRange);
 
     CD3DX12_DESCRIPTOR_RANGE1 debugTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
     rootParameters[ComputeParams::u0DebugTextureTex].InitAsDescriptorTable(1, &debugTexDescrRange);
@@ -163,11 +166,10 @@ void LightCulling::InitLightGridTexture(const DispatchParams& dispatchPar)
 }
 
 
-void LightCulling::AttachLightsInBuffer(std::shared_ptr<CommandList>& commandList, const std::vector<Light>& lights)
+void LightCulling::AttachLightsBuffer(std::shared_ptr<CommandList>& commandList, const StructuredBuffer& lights, const StructuredBuffer& lightsNum)
 {
-    commandList->CopyStructuredBuffer(m_LightsBuffer, lights);
-    m_NumLights.NUM_LIGHTS = lights.size();
-    m_CurrState.set(EBitsetStates::bAttachLightsInBuffer);
+    commandList->SetShaderResourceView(ComputeParams::t3LightsSB, 0, lights);
+    commandList->SetShaderResourceView(ComputeParams::t4NumLightsSB, 0, lightsNum);
 }
 
 void LightCulling::AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex, const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc/* = nullptr*/)
@@ -193,7 +195,6 @@ void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const Scre
 {
     assert(m_CurrState.test(EBitsetStates::bStartCompute));
     assert(m_CurrState.test(EBitsetStates::bAttachDepthTex));
-    assert(m_CurrState.test(EBitsetStates::bAttachLightsInBuffer));
     assert(m_CurrState.test(EBitsetStates::bAttachGridViewFrustums));
     assert(m_CurrState.test(EBitsetStates::bInitDebugTex));
     assert(m_CurrState.test(EBitsetStates::bInitLightGridTex));
@@ -201,14 +202,11 @@ void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const Scre
 
     m_CurrState.reset(EBitsetStates::bStartCompute);
     m_CurrState.reset(EBitsetStates::bAttachDepthTex);
-    m_CurrState.reset(EBitsetStates::bAttachLightsInBuffer);
 
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::b0ScreenToViewParamsCB, params);
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::b1DispatchParamsCB, dispatchPar);
-    commandList->SetComputeDynamicConstantBuffer(ComputeParams::b2NumLightsCB, m_NumLights);
 
     commandList->SetShaderResourceView(ComputeParams::t2LightCountHeatMapTex, 0, m_LightCullingHeatMap);
-    commandList->SetShaderResourceView(ComputeParams::t3LightsSB, 0, m_LightsBuffer);
 
     commandList->SetUnorderedAccessView(ComputeParams::u0DebugTextureTex, 0, m_DebugTex);
     commandList->SetUnorderedAccessView(ComputeParams::u1OpaqueLightIndexCounterSB, 0, m_LightListIndexCounterOpaqueBuffer);
@@ -220,6 +218,40 @@ void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const Scre
 
     const auto& numThreads = dispatchPar.m_NumThreads;
     commandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
+
+    /*
+    auto& device = GetApp().GetDevice();
+
+    ComPtr<ID3D12Resource> mReadBackBuffer;
+    ThrowIfFailed(device->CreateCommittedResource(
+        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
+        D3D12_HEAP_FLAG_NONE,
+        //&CD3DX12_RESOURCE_DESC::Buffer(m_NumLights.NUM_LIGHTS * sizeof(Light)),
+        &CD3DX12_RESOURCE_DESC::Buffer(sizeof(uint32_t)),
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&mReadBackBuffer)));
+
+    commandList->TransitionBarrier(m_LightListIndexCounterOpaqueBuffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+    commandList->CopyResource(mReadBackBuffer, m_LightListIndexCounterOpaqueBuffer.GetD3D12Resource());
+
+    auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    auto fenceValue = commandQueue->ExecuteCommandList(commandList);
+    commandQueue->WaitForFenceValue(fenceValue);
+
+    commandList = commandQueue->GetCommandList();
+
+    uint32_t* mappedData = nullptr;
+    ThrowIfFailed(mReadBackBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
+    std::vector<uint32_t> sega;
+    for (int i = 0; i < 1; ++i)
+        sega.push_back(*(mappedData + i));
+
+    std::cout << sega[0] << std::endl;
+
+    mReadBackBuffer->Unmap(0, nullptr);
+    */
+    
 }
 
 const Texture& LightCulling::GetDebugTex() const
@@ -235,9 +267,4 @@ const Texture& LightCulling::GetOpaqueLightGrid() const
 const StructuredBuffer& LightCulling::GetOpaqueLightIndexList() const
 {
     return m_LightIndexListOpaqueBuffer;
-}
-
-const StructuredBuffer& LightCulling::GetLightsBuffer() const
-{
-    return m_LightsBuffer;
 }

@@ -23,6 +23,7 @@ StructuredBuffer<uint>  LightIndexList : register(t6);
 
 SamplerState LinearRepeatSampler : register(s0);
 
+[earlydepthstencil]
 float4 main(PixelShaderInput IN) : SV_Target0
 {
     const float4 eyePos = { 0, 0, 0, 1 };
@@ -33,7 +34,7 @@ float4 main(PixelShaderInput IN) : SV_Target0
 
     // for normal mapping
     float3x3 TBN = float3x3(normalize(IN.TangentVS),
-                            normalize(IN.BinormalVS),
+                            normalize(-IN.BinormalVS),
                             normalize(IN.NormalVS));
     float3 normal = NormalTexture.Sample(LinearRepeatSampler, IN.TexCoord).xyz;
 
@@ -49,32 +50,22 @@ float4 main(PixelShaderInput IN) : SV_Target0
     uint startOffset = tileData.x;
     uint lightCount = tileData.y;
 
-    /*
     LightResult lightsRes = (LightResult)0;
     
-    for (uint i = 0; i < lightCount; ++i)
+    for (uint i = 0; i < 50; ++i)
     {
-        uint lightIndex = LightIndexList[startOffset + i];
-        if (lightIndex <= 0)
-            return float4(1., 0., 0., 1.);
-        else
-            return float4(0., 1., 0., 1.);
-        Light light = Lights[lightIndex];
-
-        /*
+        //uint lightIndex = LightIndexList[startOffset + i];
+        Light light = Lights[i];
+    
         // Skip lights that are not enabled.
-        if (!light.Enabled || (light.Type != DIRECTIONAL_LIGHT && length(light.PositionVS - P) > light.Range))
+        if (!light.Enabled) continue;
+        if (light.Type != DIRECTIONAL_LIGHT && length(light.PositionVS - P) > light.Range)
             continue;
 
         LightResult result;
 
         switch (light.Type)
         {
-        case DIRECTIONAL_LIGHT:
-        {
-            DoDirectionalLight(light, V, P, N, result);
-        }
-        break;
         case POINT_LIGHT:
         {
             DoPointLight(light, V, P, N, result);
@@ -85,18 +76,20 @@ float4 main(PixelShaderInput IN) : SV_Target0
             DoSpotLight(light, V, P, N, result);
         }
         break;
+        case DIRECTIONAL_LIGHT:
+        {
+            DoDirectionalLight(light, V, P, N, result);
         }
-
+        break;
+        }
         lightsRes.Diffuse += result.Diffuse;
         lightsRes.Specular += result.Specular;
-        */
-   // }
+    }
     
-
-    //diffuse = lightsRes.Diffuse;
-    //specular = lightsRes.Specular;
+    diffuse *= lightsRes.Diffuse;
+    specular *= lightsRes.Specular;
+    ambient *= 0.1;
     
-    //return float4((diffuse + specular).rgb, ambient.a);
-    return float4((ambient + diffuse ).rgb, ambient.a);
+    return float4((ambient + diffuse + specular).rgb, ambient.a);
 }
 

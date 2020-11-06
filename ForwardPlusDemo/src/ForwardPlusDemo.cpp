@@ -188,36 +188,40 @@ bool ForwardPlusDemo::LoadContent()
     screenToViewParams.m_ScreenDimensions = { swidth, sheight };
     m_ScreenToViewParams = screenToViewParams;
 
-    core::DispatchParams dispatchPar;
-    dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
-    const auto& numThreads = dispatchPar.m_NumThreads;
-    dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
-    m_CSDispatchParams = dispatchPar;
+    {
+        core::DispatchParams dispatchPar;
+        dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
+        const auto& numThreads = dispatchPar.m_NumThreads;
+        dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
+        m_FrustumGridDispatchParams = dispatchPar;
+    }
 
     {
-        m_ComputeGridFrustums.Compute(m_ScreenToViewParams, m_CSDispatchParams);
+        core::DispatchParams dispatchPar;
+        dispatchPar.m_NumThreadGroups = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
+        const auto& numThrGr = dispatchPar.m_NumThreadGroups;
+        dispatchPar.m_NumThreads = { numThrGr.x * m_LightCullingBlockSize, numThrGr.y * m_LightCullingBlockSize, 1 };
+        m_LightsCullDispatchParams = m_FrustumGridDispatchParams;
+    }
+
+    
+
+    {
+        m_ComputeGridFrustums.Compute(m_ScreenToViewParams, m_FrustumGridDispatchParams);
     }
 
     {
         fpdu::CollectLightsFromConfig(*m_Config, m_Lights);
-
-        for (auto& light: m_Lights)
-        {
-            LightBuffer buffer;
-            auto& posWS = light.m_PositionWS;
-            buffer.posWS = XMVectorSet(posWS.x, posWS.y, posWS.z, posWS.w);
-            auto& dirWS = light.m_DirectionWS;
-            buffer.dirWS = XMVectorSet(dirWS.x, dirWS.y, dirWS.z, dirWS.w);
-            m_LightsBufferData.emplace_back(buffer);
-
-            light.m_Attenuation = 1.0;
-        }
     }
 
     {
         m_ComputeLightCulling.InitDebugTex(swidth, sheight);
-        m_ComputeLightCulling.InitLightGridTexture(dispatchPar);
-        m_ComputeLightCulling.InitLightIndexListBuffers(commandList, dispatchPar, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
+        m_ComputeLightCulling.InitLightGridTexture(m_LightsCullDispatchParams);
+        m_ComputeLightCulling.InitLightIndexListBuffers(commandList, m_LightsCullDispatchParams, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
+    }
+
+    {
+        m_ComputeLightsToView.InitLightsBuffer(commandList, m_Lights);
     }
 
     {
@@ -452,16 +456,6 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
     {
         m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera.get_ViewMatrix(), m_Camera.get_ProjectionMatrix());
     }
-
-    {
-        for(int i = 0; i < m_Lights.size(); ++i)
-        {
-            const auto& lightBufferData = m_LightsBufferData[i];
-            auto& light = m_Lights[i];
-            XMStoreFloat4(&light.m_PositionVS, XMVector4Transform(lightBufferData.posWS, m_ViewMatrix));
-            XMStoreFloat4(&light.m_DirectionVS, XMVector4Transform(lightBufferData.dirWS, m_ViewMatrix));
-        }
-    }
 }
 
 void ForwardPlusDemo::RescaleRenderTarget(float scale)
@@ -491,7 +485,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     }
 
     Mat matrices;
-    auto model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
+    auto model = XMMatrixScaling(9.999999776e-003, 9.999999776e-003, 9.999999776e-003);
     ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
     {
@@ -500,18 +494,8 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
     }
 
-    {
-        ///*
-        m_ComputeLightCulling.StartCompute(commandList);
-        m_ComputeLightCulling.AttachLightsInBuffer(commandList, m_Lights);
-        m_ComputeLightCulling.AttachGridViewFrustums(commandList, m_ComputeGridFrustums.GetGridFrustums());
-        m_ComputeLightCulling.AttachDepthTex(commandList, m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
-        m_ComputeLightCulling.Compute(commandList, m_ScreenToViewParams, m_CSDispatchParams);
-        //*/
-    }
-
-    {
-        /*
+    if (m_Mode == EDemoMode::DepthBufferDebug)
+    {      
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
@@ -520,17 +504,34 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             0, 0, &m_DepthBufferRenderPass.GetSRV());
         m_DebugDepthBufferRenderPass.OnRender(commandList, e);
-       */
+       
     }
-
+    else
     {
+        m_ComputeLightsToView.StartCompute(commandList);
+        m_ComputeLightsToView.Compute(commandList, m_ViewMatrix);
+
+        auto fenceValue = commandQueue->ExecuteCommandList(commandList);
+        commandQueue->WaitForFenceValue(fenceValue);
+        commandList = commandQueue->GetCommandList();
+
+        m_ComputeLightCulling.StartCompute(commandList);
+        m_ComputeLightCulling.AttachLightsBuffer(commandList, m_ComputeLightsToView.GetLightsBuffer(), m_ComputeLightsToView.GetNumLightsBuffer());
+        m_ComputeLightCulling.AttachGridViewFrustums(commandList, m_ComputeGridFrustums.GetGridFrustums());
+        m_ComputeLightCulling.AttachDepthTex(commandList, m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
+        m_ComputeLightCulling.Compute(commandList, m_ScreenToViewParams, m_LightsCullDispatchParams);
+
+        fenceValue = commandQueue->ExecuteCommandList(commandList);
+        commandQueue->WaitForFenceValue(fenceValue);
+        commandList = commandQueue->GetCommandList();
+
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
         m_ForwardPlusRenderPass.OnPreRender(commandList, e);
         commandList->SetGraphicsDynamicConstantBuffer(0, matrices);
         m_ForwardPlusRenderPass.AttachLightGridTex(commandList, m_ComputeLightCulling.GetOpaqueLightGrid());
-        m_ForwardPlusRenderPass.AttachLightsSB(commandList, m_ComputeLightCulling.GetLightsBuffer());
+        m_ForwardPlusRenderPass.AttachLightsSB(commandList, m_ComputeLightsToView.GetLightsBuffer());
         m_ForwardPlusRenderPass.AttachLightIndexListSB(commandList, m_ComputeLightCulling.GetOpaqueLightIndexList());
         m_Sponza.Render(commandList, m_Frustum, m_ForwardPlusDrawFun);
     }
@@ -540,9 +541,20 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-    //commandList->TransitionBarrier(m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    //commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+    switch (m_Mode)
+    {
+    case EDemoMode::ForwardPlus:
+    case EDemoMode::DepthBufferDebug:
+        commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        break;
+    case EDemoMode::ForwardPlusDebug:
+        commandList->TransitionBarrier(m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        break;
+    default:
+        break;
+    }
 
     commandList->Draw(3);
 
@@ -720,6 +732,19 @@ void ForwardPlusDemo::OnGUI()
             if (ImGui::MenuItem("Full screen", "Alt+Enter", &fullscreen))
             {
                 m_pWindow->SetFullscreen(fullscreen);
+            }
+
+            if (ImGui::MenuItem("Forward+", "*", m_Mode == EDemoMode::ForwardPlus))
+            {
+                m_Mode = EDemoMode::ForwardPlus;
+            }
+            if (ImGui::MenuItem("Forward+ debug", "*", m_Mode == EDemoMode::ForwardPlusDebug))
+            {
+                m_Mode = EDemoMode::ForwardPlusDebug;
+            }
+            if (ImGui::MenuItem("Depth buffer debug", "*", m_Mode == EDemoMode::DepthBufferDebug))
+            {
+                m_Mode = EDemoMode::DepthBufferDebug;
             }
 
             ImGui::EndMenu();

@@ -11,8 +11,6 @@ struct LightInfo
     int NUM_LIGHTS;
 };
 
-ConstantBuffer<LightInfo> bLightInfo : register(b2);
-
 // The depth from the screen space texture.
 Texture2D tDepthTextureVS : register(t0);
 // Precomputed frustums for the grid.
@@ -21,6 +19,7 @@ StructuredBuffer<Frustum> tFrustums : register(t1);
 // Debug texture for debugging purposes.
 Texture2D tLightCountHeatMap : register(t2);
 StructuredBuffer<Light> Lights : register(t3);
+StructuredBuffer<LightInfo> tLightInfo : register(t4);
 RWTexture2D<float4> uDebugTexture : register(u0);
 SamplerState sLinearClampSampler : register(s0);
 
@@ -52,7 +51,6 @@ groupshared uint t_gsLightIndexStartOffset;
 groupshared uint t_gsLightList[1024];
 
 // Add the light to the visible light list for opaque geometry.
-// Add the light to the visible light list for opaque geometry.
 void o_AppendLight(uint lightIndex)
 {
     uint index; // Index into the visible lights array.
@@ -81,7 +79,7 @@ void main(ComputeShaderInput IN)
     int2 texCoord = IN.dispatchThreadID.xy;
     float f_Depth = tDepthTextureVS.Load(int3(texCoord, 0)).r;
 
-    uint u_Depth = asuint(f_Depth);
+    uint u_Depth = f_Depth;
 
     if (IN.groupIndex == 0) // Avoid contention by other threads in the group.
     {
@@ -99,8 +97,8 @@ void main(ComputeShaderInput IN)
 
     GroupMemoryBarrierWithGroupSync();
 
-    float f_MinDepth = asfloat(gsMinDepth);
-    float f_MaxDepth = asfloat(gsMaxDepth);
+    float f_MinDepth = float(gsMinDepth);
+    float f_MaxDepth = float(gsMaxDepth);
 
     float4 view_tmp; 
     // Convert depth values to view space.
@@ -113,12 +111,13 @@ void main(ComputeShaderInput IN)
 
     // Clipping plane for minimum depth value 
     // (used for testing lights within the bounds of opaque geometry).
-    Plane minPlane = { float3(0, 0, -1), -minDepthVS };
+    Plane minPlane = { 0, 0, -1, -minDepthVS };
 
     // Cull lights
     // Each thread in a group will cull 1 light until all lights have been culled.
     uint sqBLOCK_SIZE = BLOCK_SIZE * BLOCK_SIZE;
-    for (uint i = IN.groupIndex; i < bLightInfo.NUM_LIGHTS; i += sqBLOCK_SIZE)
+    uint numLights = tLightInfo[0].NUM_LIGHTS;
+    for (uint i = IN.groupIndex; i < numLights; i += sqBLOCK_SIZE)
     {
         if (Lights[i].Enabled)
         {
@@ -203,7 +202,8 @@ void main(ComputeShaderInput IN)
     }
     else if (o_gsLightCount > 0)
     {
-        float normalizedLightCount = o_gsLightCount / 50.0f;
+        float f_numLights = float(numLights);
+        float normalizedLightCount = o_gsLightCount / f_numLights;
         float4 lightCountHeatMapColor = tLightCountHeatMap.SampleLevel(sLinearClampSampler, float2(normalizedLightCount, 0), 0);
         uDebugTexture[texCoord] = lightCountHeatMapColor;
     }

@@ -14,6 +14,7 @@
 #include <config_sys/Config.h>
 #include <GridViewFrustums.h>
 #include <LightCulling.h>
+#include <LightsToView.h>
 #include <DepthBufferRenderPass.h>
 #include <DebugDepthBufferRenderPass.h>
 #include <ForwardPlusRenderPass.h>
@@ -27,10 +28,11 @@ namespace dx12demo
 {
 	class ForwardPlusDemo : public core::Game
 	{
-        struct LightBuffer
+        enum class EDemoMode
         {
-            DirectX::XMVECTOR posWS;
-            DirectX::XMVECTOR dirWS;
+            ForwardPlus,
+            ForwardPlusDebug,
+            DepthBufferDebug,
         };
 
 	public:
@@ -92,7 +94,6 @@ namespace dx12demo
         core::QuadRenderPass m_QuadRenderPass;
 
         std::vector<core::Light> m_Lights;
-        std::vector<LightBuffer> m_LightsBufferData;
 
         float m_FoV;
 
@@ -121,7 +122,9 @@ namespace dx12demo
         uint16_t m_LightCullingBlockSize = 16;
         core::GridViewFrustum m_ComputeGridFrustums;
         core::LightCulling m_ComputeLightCulling;
-        core::DispatchParams m_CSDispatchParams;
+        core::LightsToView m_ComputeLightsToView;
+        core::DispatchParams m_FrustumGridDispatchParams;
+        core::DispatchParams m_LightsCullDispatchParams;
         core::ScreenToViewParams m_ScreenToViewParams;
 
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_MaterialDrawFun;
@@ -164,5 +167,7 @@ namespace dx12demo
         double m_FPS = 0.;
 
         bool m_ContentLoaded;
+
+        EDemoMode m_Mode = EDemoMode::ForwardPlus;
 	};
 }
