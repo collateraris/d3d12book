@@ -155,6 +155,17 @@ namespace dx12demo::core
         }
 
         /**
+         * Set a dynamic constant buffer data to an inline descriptor in the root
+         * signature.
+         */
+        void SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, size_t sizeInBytes, const void* bufferData);
+        template<typename T>
+        void SetComputeDynamicConstantBuffer(uint32_t rootParameterIndex, const T& data)
+        {
+            SetComputeDynamicConstantBuffer(rootParameterIndex, sizeof(T), &data);
+        }
+
+        /**
          * Set a set of 32-bit constants on the graphics pipeline.
          */
         void SetGraphics32BitConstants(uint32_t rootParameterIndex, uint32_t numConstants, const void* constants);
@@ -213,6 +224,16 @@ namespace dx12demo::core
             SetGraphicsDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
         }
 
+        /**
+         * Set compute structured buffer contents.
+         */
+        void SetComputeDynamicStructuredBuffer(uint32_t slot, size_t numElements, size_t elementSize, const void* bufferData);
+        template<typename T>
+        void SetComputeDynamicStructuredBuffer(uint32_t slot, const std::vector<T>& bufferData)
+        {
+            SetComputeDynamicStructuredBuffer(slot, bufferData.size(), sizeof(T), bufferData.data());
+        }
+
         void SetViewport(const D3D12_VIEWPORT& viewport);
         void SetViewports(const std::vector<D3D12_VIEWPORT>& viewports);
 
@@ -254,10 +275,15 @@ namespace dx12demo::core
             const D3D12_UNORDERED_ACCESS_VIEW_DESC* uav = nullptr
         );
 
+        void SetComputeRootUnorderedAccessView(uint32_t rootParameterIndex, Resource& resource);
+
+
         /**
          * Set the render targets for the graphics rendering pipeline.
          */
         void SetRenderTarget(const RenderTarget& renderTarget);
+
+        void SetRenderTargetWriteDepthBufferOnly(const RenderTarget& renderTarget);
 
         /**
          * Generate mips for the texture.

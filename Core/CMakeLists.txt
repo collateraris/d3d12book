@@ -11,6 +11,8 @@ set( HEADER_FILES
     inc/CommandQueue.h
     inc/ConstantBuffer.h
 	inc/d3dUtil.h
+	inc/DebugDepthBufferRenderPass.h
+	inc/DepthBufferRenderPass.h
     inc/DescriptorAllocation.h
     inc/DescriptorAllocator.h
     inc/DescriptorAllocatorPage.h
@@ -19,18 +21,24 @@ set( HEADER_FILES
 	inc/Frustum.h
 	inc/FrustumCullRenderPass.h
     inc/Events.h
+	inc/ForwardPlusRenderPass.h
     inc/Game.h
     inc/GenerateMipsPSO.h
+	inc/GeometryPrimitive.h
+	inc/GridViewFrustums.h
     inc/GUI.h
     inc/Helpers.h
     inc/HighResolutionClock.h
     inc/IndexBuffer.h
     inc/KeyCodes.h
 	inc/Light.h
+	inc/LightCulling.h
+	inc/LightsToView.h
 	inc/Material.h
     inc/Mesh.h
 	inc/OcclusionCullRenderPass.h
     inc/PanoToCubemapPSO.h
+	inc/QuadRenderPass.h
 	inc/QuadTree.h
 	inc/RenderPassBase.h
     inc/RenderTarget.h
@@ -39,6 +47,7 @@ set( HEADER_FILES
     inc/RootSignature.h
     inc/Scene.h
     inc/SceneNode.h
+	inc/ShaderCommonInclude.h
     inc/StructuredBuffer.h
 	inc/Terrain.h
     inc/Texture.h
@@ -60,23 +69,30 @@ set( SOURCE_FILES
     src/CommandList.cpp
     src/ConstantBuffer.cpp
 	src/d3dUtil.cpp
+	src/DebugDepthBufferRenderPass.cpp
+	src/DepthBufferRenderPass.cpp
     src/DescriptorAllocation.cpp
     src/DescriptorAllocator.cpp
     src/DescriptorAllocatorPage.cpp
     src/DynamicDescriptorHeap.cpp
 	src/EnvironmentMapRenderPass.cpp
+	src/ForwardPlusRenderPass.cpp
 	src/Frustum.cpp
 	src/FrustumCullRenderPass.cpp
 	src/QuadTree.cpp
     src/Game.cpp
     src/GenerateMipsPSO.cpp
+	src/GridViewFrustums.cpp
     src/GUI.cpp
     src/HighResolutionClock.cpp
     src/IndexBuffer.cpp
+	src/LightCulling.cpp
+	src/LightsToView.cpp
 	src/Material.cpp
     src/Mesh.cpp
 	src/OcclusionCullRenderPass.cpp
     src/PanoToCubemapPSO.cpp
+	src/QuadRenderPass.cpp
 	src/RenderPassBase.cpp
     src/RenderTarget.cpp
     src/Resource.cpp
@@ -109,6 +125,24 @@ set( IMGUI_SOURCE
     src/imgui_impl_win32.cpp
 )
 
+source_group( "Source Files\\ImGUI" FILES ${IMGUI_SOURCE} )
+
+set( CONFIG_SYS_HEADERS
+    inc/config_sys/Config.h
+    inc/config_sys/XPath.h 
+	inc/config_sys/tinyxml2.h
+)
+
+source_group( "Header Files\\ConfigSys" FILES ${CONFIG_SYS_HEADERS} )
+
+set( CONFIG_SYS_SOURCE
+    src/config_sys/Config.cpp
+    src/config_sys/XPath.cpp
+	src/config_sys/tinyxml2.cpp
+)
+
+source_group( "Source Files\\ConfigSys" FILES ${CONFIG_SYS_SOURCE} )
+
 set( SHADER_FILES
     shaders/GenerateMips_CS.hlsl
 	shaders/PanoToCubemap_CS.hlsl
@@ -116,13 +150,30 @@ set( SHADER_FILES
     shaders/ImGUI_PS.hlsl
 	shaders/Skybox_VS.hlsl
     shaders/Skybox_PS.hlsl
+	shaders/GridViewFrustums_CS.hlsl
+	shaders/LightCulling_CS.hlsl
+	shaders/LightsToView_CS.hlsl
+	shaders/DepthBuffer_PS.hlsl
+	shaders/DepthBuffer_VS.hlsl
+	shaders/DebugDepthBuffer_PS.hlsl
+	shaders/DebugDepthBuffer_VS.hlsl
+	shaders/Quad_PS.hlsl
+	shaders/Quad_VS.hlsl
+	shaders/ForwardPlus_PS.hlsl
+	shaders/ForwardPlus_VS.hlsl
+)
+
+set( SHADER_COMMON_FILES
+	shaders/CommonInclude.hlsl
 )
 
 add_library( Core STATIC
     ${HEADER_FILES}
     ${SOURCE_FILES}
 	${SHADER_FILES}
-    ${IMGUI_HEADERS} ${IMGUI_SOURCE}	
+	${SHADER_COMMON_FILES}
+    ${IMGUI_HEADERS} ${IMGUI_SOURCE}
+	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}	
 )
 
 # Enable C++20 compiler features.
@@ -130,7 +181,7 @@ target_compile_features( Core
 	PUBLIC cxx_std_20
 )
 
-source_group( "shaders" FILES ${SHADER_FILES} )
+source_group( "shaders" FILES ${SHADER_FILES} ${SHADER_COMMON_FILES})
 
 target_include_directories( Core
     PUBLIC inc
@@ -153,6 +204,16 @@ set_source_files_properties( ${SHADER_FILES}
         VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
 )
 
+set_source_files_properties( ${SHADER_COMMON_FILES}
+    PROPERTIES
+        VS_SHADER_MODEL 5.1
+		VS_SHADER_TYPE Compute
+		VS_SHADER_ENTRYPOINT "main_fake"
+        VS_SHADER_OUTPUT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/%(Filename).h"
+        VS_SHADER_DISABLE_OPTIMIZATIONS $<$<CONFIG:Debug>:ON>
+        VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
+)
+
 set_source_files_properties( shaders/GenerateMips_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
@@ -163,6 +224,78 @@ set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/ForwardPlus_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_ForwardPlus_VS
+)
+
+set_source_files_properties( shaders/ForwardPlus_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_ForwardPlus_PS
+)
+
+set_source_files_properties( shaders/DepthBuffer_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_DepthBuffer_VS
+)
+
+set_source_files_properties( shaders/DepthBuffer_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_DepthBuffer_PS
+)
+
+set_source_files_properties( shaders/DebugDepthBuffer_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_DebugDepthBuffer_VS
+)
+
+set_source_files_properties( shaders/DebugDepthBuffer_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_DebugDepthBuffer_PS
+)
+
+set_source_files_properties( shaders/Quad_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_Quad_VS
+)
+
+set_source_files_properties( shaders/Quad_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_Quad_PS
+)
+
+set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/GridViewFrustums_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_GridViewFrustums_CS
+)
+
+set_source_files_properties( shaders/LightCulling_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_LightCulling_CS
+)
+
+set_source_files_properties( shaders/LightsToView_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_LightsToView_CS
 )
 
 set_source_files_properties( shaders/ImGUI_VS.hlsl

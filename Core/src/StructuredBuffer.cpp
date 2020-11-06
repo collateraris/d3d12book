@@ -39,8 +39,11 @@ StructuredBuffer::~StructuredBuffer()
 
 }
 
-void StructuredBuffer::CreateViews(size_t numElements, size_t elementSize)
+void StructuredBuffer::CreateViews(size_t numElements/* = 0*/, size_t elementSize/* = 0*/)
 {
+    assert(numElements);
+    assert(elementSize);
+
     auto device = GetApp().GetDevice();
 
     m_NumElements = numElements;

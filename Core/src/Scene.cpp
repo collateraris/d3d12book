@@ -180,19 +180,19 @@ void Scene::ProcessMeshLoadMaterialTextures(std::shared_ptr<CommandList>& comman
     }
 }
 
-void Scene::Render(std::shared_ptr<CommandList>& commandList, std::function<void(std::shared_ptr<Material>&)>& drawMatFun)
+void Scene::Render(std::shared_ptr<CommandList>& commandList, std::function<void(std::shared_ptr<CommandList>&, std::shared_ptr<Material>&)>& drawMatFun)
 {
     for (auto& nextMesh : m_Data)
     {
         auto& mesh = nextMesh.first;
         auto& mat = nextMesh.second;
 
-        drawMatFun(mat);
-        mesh->Render(*commandList);
+        drawMatFun(commandList, mat);
+        mesh->Render(commandList);
     }
 }
 
-void Scene::Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, std::function<void(std::shared_ptr<Material>&)>& drawMatFun)
+void Scene::Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, std::function<void(std::shared_ptr<CommandList>&, std::shared_ptr<Material>&)>& drawMatFun)
 {
     for (auto& nextMesh : m_Data)
     {
@@ -202,8 +202,8 @@ void Scene::Render(std::shared_ptr<CommandList>& commandList, Frustum& frustum, 
         if (!Frustum::FrustumInSphere(mesh->GetBSphere(), frustum.GetFrustumPlanesF4()))
             continue;
 
-        drawMatFun(mat);
-        mesh->Render(*commandList);
+        drawMatFun(commandList, mat);
+        mesh->Render(commandList);
     }
 }
 

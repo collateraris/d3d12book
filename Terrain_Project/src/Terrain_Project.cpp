@@ -52,7 +52,7 @@ static void ShowHelpMarker(const char* desc)
 }
 
 
-Terrain_Project::Terrain_Project(const std::wstring& name, int width, int height, bool vSync)
+ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
     , m_Forward(0)
@@ -97,12 +97,12 @@ Terrain_Project::Terrain_Project(const std::wstring& name, int width, int height
     m_DirLight.lightDirection = { -0.5f, -1.0f, 0.0f };
 }
 
-Terrain_Project::~Terrain_Project()
+ForwardPlusDemo::~ForwardPlusDemo()
 {
     _aligned_free(m_pAlignedCameraData);
 }
 
-bool Terrain_Project::LoadContent()
+bool ForwardPlusDemo::LoadContent()
 {
     auto& app = GetApp();
     auto& device = app.GetDevice();
@@ -280,13 +280,13 @@ bool Terrain_Project::LoadContent()
     return true;
 }
 
-void Terrain_Project::UnloadContent()
+void ForwardPlusDemo::UnloadContent()
 {
     m_ContentLoaded = false;
 }
 
 
-void Terrain_Project::OnResize(core::ResizeEventArgs& e)
+void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
 {
     super::OnResize(e);
 
@@ -304,7 +304,7 @@ void Terrain_Project::OnResize(core::ResizeEventArgs& e)
     }
 }
 
-void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
+void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
 {
     static uint64_t frameCount = 0;
     static double totalTime = 0.0;
@@ -347,7 +347,7 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
     {
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
-        m_envRenderPass.OnUpdate(*commandList, e);
+        m_envRenderPass.OnUpdate(commandList, e);
     }
 
     {
@@ -367,7 +367,7 @@ void Terrain_Project::OnUpdate(core::UpdateEventArgs& e)
     }
 }
 
-void Terrain_Project::RescaleRenderTarget(float scale)
+void ForwardPlusDemo::RescaleRenderTarget(float scale)
 {
     uint32_t width = static_cast<uint32_t>(m_Width * scale);
     uint32_t height = static_cast<uint32_t>(m_Height * scale);
@@ -378,7 +378,7 @@ void Terrain_Project::RescaleRenderTarget(float scale)
     m_RenderTarget.Resize(width, height);
 }
 
-void Terrain_Project::OnRender(core::RenderEventArgs& e)
+void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
@@ -399,7 +399,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        m_envRenderPass.OnRender(*commandList, e);
+        m_envRenderPass.OnRender(commandList, e);
     }
 
     commandList->SetPipelineState(m_ScenePipelineState);
@@ -447,7 +447,7 @@ void Terrain_Project::OnRender(core::RenderEventArgs& e)
     m_pWindow->Present();
 }
 
-void Terrain_Project::OnKeyPressed(core::KeyEventArgs& e)
+void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
 {
     super::OnKeyPressed(e);
     if (!ImGui::GetIO().WantCaptureKeyboard)
@@ -507,7 +507,7 @@ void Terrain_Project::OnKeyPressed(core::KeyEventArgs& e)
     //m_CameraEuler.KeyProcessing(e);
 }
 
-void Terrain_Project::OnKeyReleased(core::KeyEventArgs& e)
+void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
 {
     super::OnKeyReleased(e);
 
@@ -544,7 +544,7 @@ void Terrain_Project::OnKeyReleased(core::KeyEventArgs& e)
     //m_CameraEuler.KeyProcessing(e);
 }
 
-void Terrain_Project::OnMouseMoved(core::MouseMotionEventArgs& e)
+void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
 {
     super::OnMouseMoved(e);
 
@@ -562,7 +562,7 @@ void Terrain_Project::OnMouseMoved(core::MouseMotionEventArgs& e)
     //m_CameraEuler.MouseProcessing(e);
 }
 
-void Terrain_Project::OnMouseWheel(core::MouseWheelEventArgs& e)
+void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
@@ -582,12 +582,12 @@ void Terrain_Project::OnMouseWheel(core::MouseWheelEventArgs& e)
     }
 }
 
-void Terrain_Project::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
+void ForwardPlusDemo::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
 {
     ImGui::GetIO().FontGlobalScale = e.DPIScale;
 }
 
-void Terrain_Project::OnGUI()
+void ForwardPlusDemo::OnGUI()
 {
     static bool showDemoWindow = false;
 

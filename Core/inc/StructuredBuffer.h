@@ -18,13 +18,10 @@ namespace dx12demo::core
 		virtual size_t GetNumElements() const;
 		virtual size_t GetElementSize() const;
 
-		virtual void CreateViews(size_t numElements, size_t elementSize) override;
+		virtual void CreateViews(size_t numElements = 0, size_t elementSize = 0) override;
 
         virtual D3D12_CPU_DESCRIPTOR_HANDLE GetShaderResourceView(const D3D12_SHADER_RESOURCE_VIEW_DESC* srvDesc = nullptr) const;
 
-        /**
-         * Get the UAV for a (sub)resource.
-         */
 		virtual D3D12_CPU_DESCRIPTOR_HANDLE GetUnorderedAccessView(const D3D12_UNORDERED_ACCESS_VIEW_DESC* uavDesc = nullptr) const override;
 
 		const ByteAddressBuffer& GetCounterBuffer() const;

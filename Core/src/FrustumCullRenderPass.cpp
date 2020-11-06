@@ -19,12 +19,12 @@ void FrustumCullRenderPass::LoadContent(RenderPassBaseInfo* info)
 
 }
 
-void FrustumCullRenderPass::OnUpdate(CommandList& commandList, UpdateEventArgs& e)
+void FrustumCullRenderPass::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEventArgs& e)
 {
 
 }
 
-void FrustumCullRenderPass::OnRender(CommandList& commandList, RenderEventArgs& e)
+void FrustumCullRenderPass::OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
 {
 
 }

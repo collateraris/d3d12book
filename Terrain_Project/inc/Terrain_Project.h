@@ -18,7 +18,7 @@
 
 namespace dx12demo
 {
-	class Terrain_Project : public core::Game
+	class ForwardPlusDemo : public core::Game
 	{
         struct LightBuffer
         {
@@ -31,9 +31,9 @@ namespace dx12demo
 
         using super = Game;
 
-        Terrain_Project(const std::wstring& name, int width, int height, bool vSync = false);
+        ForwardPlusDemo(const std::wstring& name, int width, int height, bool vSync = false);
 
-        virtual ~Terrain_Project();
+        virtual ~ForwardPlusDemo();
         /**
          *  Load content required for the demo.
          */
