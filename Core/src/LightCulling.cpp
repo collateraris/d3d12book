@@ -5,8 +5,6 @@
 #include <CommandQueue.h>
 #include <LightCulling_CS.h>
 
-#include <iostream>
-
 using namespace dx12demo::core;
 
 namespace ComputeParams

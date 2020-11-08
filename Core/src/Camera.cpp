@@ -192,3 +192,64 @@ void Camera::UpdateInverseProjectionMatrix() const
     m_InverseProjectionDirty = false;
 }
 
+const DirectX::XMVECTOR& Camera::GetPosition() const
+{
+    static DirectX::XMFLOAT4X4 tmpViewMatrix;
+    static DirectX::XMVECTOR position;
+    static float x, y, z, w = 1.0f;
+
+    if (m_ViewDirty)
+    {
+        UpdateViewMatrix();
+
+    }
+
+    XMStoreFloat4x4(
+        &tmpViewMatrix,
+        pData->m_ViewMatrix
+    );
+
+    x = tmpViewMatrix._41;
+    y = tmpViewMatrix._42;
+    z = tmpViewMatrix._43;
+
+    position = XMVectorSet(
+        x,
+        y,
+        z,
+        w
+    );
+  
+    return position;
+}
+
+const DirectX::XMVECTOR& Camera::GetDirection() const
+{
+    static DirectX::XMFLOAT4X4 tmpViewMatrix;
+    static DirectX::XMVECTOR direction;
+    static float x, y, z, w = 1.0f;
+
+    if (m_ViewDirty)
+    {
+        UpdateViewMatrix();
+    }
+
+    XMStoreFloat4x4(
+        &tmpViewMatrix,
+        pData->m_ViewMatrix
+    );
+
+    x = tmpViewMatrix._31;
+    y = tmpViewMatrix._32;
+    z = tmpViewMatrix._33;
+
+    direction = XMVectorSet(
+        x,
+        y,
+        z,
+        w
+    );
+
+    return direction;
+}
+
