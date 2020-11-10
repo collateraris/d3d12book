@@ -10,7 +10,7 @@ struct GRID_PARAMS
 	float4 globalIllumParams;
 };
 
-ConstantBuffer<GRID_PARAMS> bGridParams : register(b0);
+ConstantBuffer<GRID_PARAMS> bGridParams : register(b1);
 
 struct GeometryShaderOutput
 {
@@ -25,7 +25,6 @@ SamplerState sLinearSampler: register(s0);
 
 struct VOXEL
 {
-	float4 color;
 	uint4 normalMasks; // encoded normals
 	uint colorMask; // encoded color
 	uint occlusion; // voxel only contains geometry info if occlusion > 0
@@ -133,9 +132,5 @@ void main(GeometryShaderOutput input)
 
 		// output normal according to normal index
 		InterlockedMax(uVoxelsGrid[gridIndex].normalMasks[normalIndex], normalMask);
-	}
-	{
-		float4 _c = float4(1., 0.5, 0., 1.0);
-		uVoxelsGrid[0].color = _c;
 	}
 }

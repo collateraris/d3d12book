@@ -8,7 +8,7 @@ struct GRID_PARAMS
 	float4 globalIllumParams;
 };
 
-ConstantBuffer<GRID_PARAMS> bGridParams : register(b0);
+ConstantBuffer<GRID_PARAMS> bGridParams : register(b1);
 
 struct VertexShaderOutput
 {
@@ -58,7 +58,6 @@ void main(triangle VertexShaderOutput input[3], inout TriangleStream<GeometrySha
 	// Get view, at which the current triangle is most visible, in order to achieve highest
 	// possible rasterization of the primitive.
 	uint viewIndex = GetViewIndex(faceNormal);
-
 	GeometryShaderOutput output[3];
 	[unroll]
 	for (uint i = 0; i < 3; i++)
@@ -71,8 +70,8 @@ void main(triangle VertexShaderOutput input[3], inout TriangleStream<GeometrySha
 
 	// Bloat triangle in normalized device space with the texel size of the currently bound 
 	// render-target. In this way pixels, which would have been discarded due to the low 
-	// resolution of the currently bound render-target, will still be rasterized. 
-
+	// resolution of the currently bound render-target, will still be rasterized.
+	
 	float2 side0N = normalize(output[0].Position.xy - output[1].Position.xy);
 	float2 side1N = normalize(output[1].Position.xy - output[2].Position.xy);
 	float2 side2N = normalize(output[2].Position.xy - output[0].Position.xy);
@@ -80,7 +79,7 @@ void main(triangle VertexShaderOutput input[3], inout TriangleStream<GeometrySha
 	output[0].Position.xy += normalize(-side0N + side2N) * texelSize;
 	output[1].Position.xy += normalize(side0N - side1N) * texelSize;
 	output[2].Position.xy += normalize(side1N - side2N) * texelSize;
-
+	
 	[unroll]
 	for (uint j = 0; j < 3; j++)
 		outputStream.Append(output[j]);

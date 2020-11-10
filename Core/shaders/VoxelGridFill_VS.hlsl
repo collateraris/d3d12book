@@ -14,11 +14,18 @@ struct VertexShaderOutput
     float2 TexCoord    : TEXCOORD;
 };
 
+struct Mat
+{
+    matrix ModelMatrix;
+};
+
+ConstantBuffer<Mat> bMatCB : register(b0);
+
 VertexShaderOutput main(VertexPositionNormalTexture IN)
 {
     VertexShaderOutput OUT;
 
-    OUT.Position = float4(IN.Position, 1.0f);
+    OUT.Position = mul(bMatCB.ModelMatrix, float4(IN.Position, 1.0f));
     OUT.TexCoord = IN.TexCoord;
     OUT.Normal  = IN.Normal;
 

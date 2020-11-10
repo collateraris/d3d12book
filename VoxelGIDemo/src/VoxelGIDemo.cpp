@@ -103,7 +103,7 @@ bool VoxelGIDemo::LoadContent()
     auto commandList = commandQueue->GetCommandList();
 
     auto scenePath = m_Config->GetRoot().GetPath(SceneFileNameStr).GetValueText<std::wstring>();
-    m_Sponza.LoadFromFile(commandList, scenePath, false);
+    m_Sponza.LoadFromFile(commandList, scenePath, true);
 
     // Create an HDR intermediate render target.
     DXGI_FORMAT HDRFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -406,8 +406,7 @@ void VoxelGIDemo::OnUpdate(core::UpdateEventArgs& e)
         // Update the projection matrix.
         m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
 
-        m_ViewProjMatrix = m_ViewMatrix * m_ProjectionMatrix;
-        m_InvViewProjMatrix = XMMatrixInverse(nullptr, m_ViewProjMatrix);
+        m_InvViewProjMatrix = m_Camera.get_InverseProjectionMatrix()* m_Camera.get_InverseViewMatrix();
     }
 
     {
@@ -442,51 +441,15 @@ void VoxelGIDemo::OnRender(core::RenderEventArgs& e)
     }
 
     Mat matrices;
-    //auto model = XMMatrixScaling(9.999999776e-003, 9.999999776e-003, 9.999999776e-003);
+    //auto model = XMMatrixScaling(0.5, 0.5, 0.5);
     auto model = XMMatrixScaling(1, 1, 1);
     ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
-
-    m_VoxelGrid.UpdateGrid(commandList, m_Camera);
-    m_Sponza.Render(commandList, m_VoxelGridFillDrawFun);
-
-    auto& device = GetApp().GetDevice();
-
-    ComPtr<ID3D12Resource> mReadBackBuffer;
-    ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
-        D3D12_HEAP_FLAG_NONE,
-        //&CD3DX12_RESOURCE_DESC::Buffer(m_NumLights.NUM_LIGHTS * sizeof(Light)),
-        &CD3DX12_RESOURCE_DESC::Buffer(sizeof(core::VoxelOfVoxelGridClass) * 32 * 32 * 32),
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        nullptr,
-        IID_PPV_ARGS(&mReadBackBuffer)));
-
-    commandList->TransitionBarrier(m_VoxelGrid.GetVoxelGrid().GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_SOURCE);
-    commandList->CopyResource(mReadBackBuffer, m_VoxelGrid.GetVoxelGrid().GetD3D12Resource());
-
-    auto fenceValue = commandQueue->ExecuteCommandList(commandList);
-    commandQueue->WaitForFenceValue(fenceValue);
-
-    commandList = commandQueue->GetCommandList();
-
-    core::VoxelOfVoxelGridClass* mappedData = nullptr;
-    ThrowIfFailed(mReadBackBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
-    std::vector<core::VoxelOfVoxelGridClass> sega;
-    for (int i = 0; i < 32 * 32 * 32; ++i)
-        sega.push_back(*(mappedData + i));
-
-    mReadBackBuffer->Unmap(0, nullptr);
-    //*/
-
-    //commandQueue->ExecuteCommandList(commandList);
-    //commandList = commandQueue->GetCommandList();
 
     {
         m_DepthBufferRenderPass.OnRender(commandList, e);
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);     
         m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
     }
-
 
     if (m_Mode == EDemoMode::DepthBufferDebug)
     {
@@ -501,6 +464,10 @@ void VoxelGIDemo::OnRender(core::RenderEventArgs& e)
     }
     else if (m_Mode == EDemoMode::VoxelGridDebug)
     {
+        m_VoxelGrid.UpdateGrid(commandList, m_Camera);
+        m_VoxelGrid.AttachModelMatrix(commandList, model);
+        m_Sponza.Render(commandList, m_Frustum, m_VoxelGridFillDrawFun);
+
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);

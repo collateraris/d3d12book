@@ -121,5 +121,6 @@ void VoxelGridDebugRenderPass::AttachVoxelGridParams(std::shared_ptr<CommandList
 
 void VoxelGridDebugRenderPass::AttachInvViewProjMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& invViewProj)
 {
-    commandList->SetGraphicsDynamicConstantBuffer(DebugParams::b1MatCB, invViewProj);
+    m_Mat.invViewProj = invViewProj;
+    commandList->SetGraphicsDynamicConstantBuffer(DebugParams::b1MatCB, m_Mat);
 }

@@ -23,6 +23,10 @@ namespace dx12demo::core
 
 	class VoxelGridDebugRenderPass : RenderPassBase
 	{
+		struct Mat
+		{
+			DirectX::XMMATRIX invViewProj;
+		};
 	public:
 		VoxelGridDebugRenderPass();
 		virtual ~VoxelGridDebugRenderPass();
@@ -44,5 +48,7 @@ namespace dx12demo::core
 
 		RootSignature m_DebugRootSignature;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> m_DebugPipelineState;
+
+		Mat m_Mat;
 	};
 }

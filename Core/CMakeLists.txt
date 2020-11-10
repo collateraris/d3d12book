@@ -163,6 +163,7 @@ set( SHADER_FILES
 	shaders/DebugDepthBuffer_VS.hlsl
 	shaders/Quad_PS.hlsl
 	shaders/Quad_VS.hlsl
+	shaders/QuadTC_VS.hlsl
 	shaders/ForwardPlus_PS.hlsl
 	shaders/ForwardPlus_VS.hlsl
 	shaders/VoxelGridFill_VS.hlsl
@@ -280,6 +281,12 @@ set_source_files_properties( shaders/Quad_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Quad_PS
+)
+
+set_source_files_properties( shaders/QuadTC_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_QuadTC_VS
 )
 
 set_source_files_properties( shaders/PanoToCubemap_CS.hlsl

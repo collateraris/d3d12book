@@ -23,7 +23,6 @@ Texture2D tDepthTex: register(t0);
 
 struct VOXEL
 {
-	float4 color;
 	uint4 normalMasks; // encoded normals
 	uint colorMask; // encoded color
 	uint occlusion; // voxel only contains geometry info if occlusion > 0
@@ -56,7 +55,7 @@ FragmentShaderOutput main(VertexShaderOutput input)
 	// reconstruct world-space position from depth
 	float4 projPosition = float4(input.TexCoord, depth, 1.0f);
 	projPosition.xy = (projPosition.xy * 2.0f) - 1.0f;
-	projPosition.y = -projPosition.y;
+	projPosition.y *= -1.0f;
 	float4 position = mul(bMatCB.InverseViewProjectionMatrix, projPosition);
 	position.xyz /= position.w;
 
@@ -75,8 +74,8 @@ FragmentShaderOutput main(VertexShaderOutput input)
 		VOXEL voxel = tVoxelsGrid[gridIndex];
 
 		// decode color
-		//color = DecodeColor(voxel.colorMask);
-		color = voxel.color.rgb;
+		color = DecodeColor(voxel.colorMask);
+		//color = float3(1., 0., 1.);
 	};
 
 	output.fragColor = float4(color, 1.0f);
