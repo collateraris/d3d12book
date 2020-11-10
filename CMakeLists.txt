@@ -36,7 +36,8 @@ add_subdirectory( Lesson2_forward_shading )
 add_subdirectory( Terrain_Project )
 add_subdirectory( StencilDemo )
 add_subdirectory( ForwardPlusDemo )
+add_subdirectory( VoxelGIDemo )
 
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT ForwardPlusDemo
+    VS_STARTUP_PROJECT VoxelGIDemo
 )

@@ -29,6 +29,9 @@ namespace dx12demo::core
         const DirectX::XMMATRIX& get_ProjectionMatrix() const;
         const DirectX::XMMATRIX& get_InverseProjectionMatrix() const;
 
+        const DirectX::XMVECTOR& GetPosition() const;
+        const DirectX::XMVECTOR& GetDirection() const;
+
         void set_FoV(float fovy);
         float get_FoV() const;
 
