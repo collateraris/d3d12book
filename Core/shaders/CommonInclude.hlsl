@@ -84,19 +84,19 @@ struct Light
     /**
     * Disable or enable the light.
     */
-    bool    Enabled;
+    int    Enabled;
     //--------------------------------------------------------------( 16 bytes )
 
     /**
      * Is the light selected in the editor?
      */
-    bool    Selected;
+    int    Selected;
 
     /**
     * The type of the light.
     */
-    uint    Type;
-    float2  Padding;
+    int    Type;
+    int  Padding;
     //--------------------------------------------------------------( 16 bytes )
     //--------------------------------------------------------------( 16 * 7 = 112 bytes )
 };

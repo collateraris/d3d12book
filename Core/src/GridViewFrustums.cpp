@@ -77,8 +77,8 @@ void GridViewFrustum::Compute(const ScreenToViewParams& params, const DispatchPa
     commandList->SetUnorderedAccessView(ComputeParams::OutFrustumUAV, 0, m_GridFrustumBuffer);
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::ScreenToViewParamsCB, params);
     commandList->SetComputeDynamicConstantBuffer(ComputeParams::DispatchParamsCB, dispatchPar);
-
-    commandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
+    const auto numTrGr = dispatchPar.m_NumThreadGroups;
+    commandList->Dispatch(numTrGr.x, numTrGr.y, numTrGr.z);
 
     /*
 
