@@ -21,7 +21,7 @@ struct VertexShaderOutput
 {
     float4 PositionVS  : POSITION;
     float2 TexCoord    : TEXCOORD;
-    float4 Position    : SV_Position;
+    float4 Position    : SV_POSITION;
     float3 NormalVS    : NORMAL;
     float3 TangentVS   : TANGENT;      // View space tangent.
     float3 BinormalVS  : BINORMAL;     // View space binormal.

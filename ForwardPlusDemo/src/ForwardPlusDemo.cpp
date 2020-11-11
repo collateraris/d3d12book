@@ -67,8 +67,8 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     , m_Yaw(0)
     , m_AnimateLights(false)
     , m_Shift(false)
-    , m_Width(0)
-    , m_Height(0)
+    , m_Width(width)
+    , m_Height(height)
     , m_RenderScale(1.0f)
 {
     
@@ -201,10 +201,8 @@ bool ForwardPlusDemo::LoadContent()
         dispatchPar.m_NumThreadGroups = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
         const auto& numThrGr = dispatchPar.m_NumThreadGroups;
         dispatchPar.m_NumThreads = { numThrGr.x * m_LightCullingBlockSize, numThrGr.y * m_LightCullingBlockSize, 1 };
-        m_LightsCullDispatchParams = m_FrustumGridDispatchParams;
+        m_LightsCullDispatchParams = dispatchPar;
     }
-
-    
 
     {
         m_ComputeGridFrustums.Compute(m_ScreenToViewParams, m_FrustumGridDispatchParams);
@@ -266,61 +264,6 @@ bool ForwardPlusDemo::LoadContent()
         info.rootSignatureVersion = featureData.HighestVersion;
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
         m_QuadRenderPass.LoadContent(&info);
-    }
-
-    // Create a root signature for the forward shading (scene) pipeline.
-    {
-        // Load the  shaders.
-        ComPtr<ID3DBlob> vs;
-        ComPtr<ID3DBlob> ps;
-        ThrowIfFailed(D3DReadFileToBlob(L"ForwardVS.cso", &vs));
-        ThrowIfFailed(D3DReadFileToBlob(L"ForwardPS.cso", &ps));
-
-        // Allow input layout and deny unnecessary access to certain pipeline stages.
-        D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
-            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
-
-        CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(SceneRootParameters::NumRootParameters)];
-        rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);      
-        rootParameters[static_cast<int>(SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
-        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-        rootParameters[static_cast<int>(SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
-
-        CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
-
-        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-        rootSignatureDescription.Init_1_1(static_cast<size_t>(SceneRootParameters::NumRootParameters), rootParameters, 1, &linearRepeatSampler, rootSignatureFlags);
-
-        m_SceneRootSignature.SetRootSignatureDesc(rootSignatureDescription.Desc_1_1, featureData.HighestVersion);
-
-        struct PipelineStateStream
-        {
-            CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-            CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
-            CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
-            CD3DX12_PIPELINE_STATE_STREAM_VS VS;
-            CD3DX12_PIPELINE_STATE_STREAM_PS PS;
-            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
-            CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL DepthStencilState;
-        } pipelineStateStream;
-
-        pipelineStateStream.pRootSignature = m_SceneRootSignature.GetRootSignature().Get();
-        pipelineStateStream.InputLayout = { core::PosNormTexVertex::InputElements, core::PosNormTexVertex::InputElementCount };
-        pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
-        pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());
-        pipelineStateStream.DSVFormat = m_RenderTarget.GetDepthStencilFormat();
-        pipelineStateStream.RTVFormats = m_RenderTarget.GetRenderTargetFormats();
-        pipelineStateStream.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-
-        D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
-            sizeof(PipelineStateStream), &pipelineStateStream
-        };
-        ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&m_ScenePipelineState)));
     }
 
     {
@@ -486,6 +429,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     Mat matrices;
     auto model = XMMatrixScaling(9.999999776e-003, 9.999999776e-003, 9.999999776e-003);
+    //auto model = XMMatrixScaling(0.1, 0.1, 0.1);
     ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
     {

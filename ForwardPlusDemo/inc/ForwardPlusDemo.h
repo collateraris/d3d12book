@@ -106,9 +106,7 @@ namespace dx12demo
         core::Scene m_Sponza;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
-        core::RootSignature m_SceneRootSignature;
         core::RootSignature m_QuadRootSignature;
-        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
         // For the light index list, we need to make a guess as to the average 

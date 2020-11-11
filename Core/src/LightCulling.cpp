@@ -138,8 +138,8 @@ void LightCulling::InitDebugTex(int screenW, int screenH)
 
 void LightCulling::InitLightIndexListBuffers(std::shared_ptr<CommandList>& commandList, const DispatchParams& dispatchPar, uint32_t average_overlapping_lights_per_tile)
 {
-    const auto& numThreads = dispatchPar.m_NumThreads;
-    auto lightsNum = numThreads.x * numThreads.y * numThreads.z * average_overlapping_lights_per_tile;
+    const auto& numTrGr = dispatchPar.m_NumThreadGroups;
+    auto lightsNum = numTrGr.x * numTrGr.y * numTrGr.z * average_overlapping_lights_per_tile;
     std::vector<uint32_t> bufferSize(lightsNum, 0);
     commandList->CopyStructuredBuffer(m_LightIndexListOpaqueBuffer, bufferSize);
     commandList->CopyStructuredBuffer(m_LightIndexListTransparentBuffer, bufferSize);
@@ -150,8 +150,16 @@ void LightCulling::InitLightIndexListBuffers(std::shared_ptr<CommandList>& comma
 void LightCulling::InitLightGridTexture(const DispatchParams& dispatchPar)
 {
     DXGI_FORMAT texFormat = DXGI_FORMAT_R32G32_UINT;
-    auto texDesc = CD3DX12_RESOURCE_DESC::Tex2D(texFormat, dispatchPar.m_NumThreads.x, dispatchPar.m_NumThreads.y);
+    auto texDesc = CD3DX12_RESOURCE_DESC::Tex2D(texFormat, dispatchPar.m_NumThreadGroups.x, 
+        dispatchPar.m_NumThreadGroups.y, dispatchPar.m_NumThreadGroups.z);
     texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+    D3D12_CLEAR_VALUE colorClearValue;
+    colorClearValue.Format = texFormat;
+    colorClearValue.Color[0] = 0;
+    colorClearValue.Color[1] = 0;
+    colorClearValue.Color[2] = 0;
+    colorClearValue.Color[3] = 0;
 
     m_OpaqueLightGrid = core::Texture(texDesc, nullptr,
         TextureUsage::Albedo,
@@ -214,42 +222,9 @@ void LightCulling::Compute(std::shared_ptr<CommandList>& commandList, const Scre
     commandList->SetUnorderedAccessView(ComputeParams::u5OpaqueLightGridTex, 0, m_OpaqueLightGrid);
     commandList->SetUnorderedAccessView(ComputeParams::u6TransparentLightGridTex, 0, m_TransparentLightGrid);
 
-    const auto& numThreads = dispatchPar.m_NumThreads;
-    commandList->Dispatch(numThreads.x, numThreads.y, numThreads.z);
-
-    /*
-    auto& device = GetApp().GetDevice();
-
-    ComPtr<ID3D12Resource> mReadBackBuffer;
-    ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK),
-        D3D12_HEAP_FLAG_NONE,
-        //&CD3DX12_RESOURCE_DESC::Buffer(m_NumLights.NUM_LIGHTS * sizeof(Light)),
-        &CD3DX12_RESOURCE_DESC::Buffer(sizeof(uint32_t)),
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        nullptr,
-        IID_PPV_ARGS(&mReadBackBuffer)));
-
-    commandList->TransitionBarrier(m_LightListIndexCounterOpaqueBuffer.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_SOURCE);
-    commandList->CopyResource(mReadBackBuffer, m_LightListIndexCounterOpaqueBuffer.GetD3D12Resource());
-
-    auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
-    auto fenceValue = commandQueue->ExecuteCommandList(commandList);
-    commandQueue->WaitForFenceValue(fenceValue);
-
-    commandList = commandQueue->GetCommandList();
-
-    uint32_t* mappedData = nullptr;
-    ThrowIfFailed(mReadBackBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
-    std::vector<uint32_t> sega;
-    for (int i = 0; i < 1; ++i)
-        sega.push_back(*(mappedData + i));
-
-    std::cout << sega[0] << std::endl;
-
-    mReadBackBuffer->Unmap(0, nullptr);
-    */
-    
+    const auto& numThGr = dispatchPar.m_NumThreadGroups;
+    commandList->Dispatch(numThGr.x, numThGr.y, numThGr.z);
+ 
 }
 
 const Texture& LightCulling::GetDebugTex() const

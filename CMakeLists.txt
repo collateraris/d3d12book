@@ -39,5 +39,5 @@ add_subdirectory( ForwardPlusDemo )
 add_subdirectory( VoxelGIDemo )
 
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT VoxelGIDemo
+    VS_STARTUP_PROJECT ForwardPlusDemo
 )

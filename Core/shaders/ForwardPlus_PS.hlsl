@@ -2,11 +2,11 @@
 
 #define BLOCK_SIZE 16
 
-struct PixelShaderInput
+struct VertexShaderOutput
 {
     float4 PositionVS  : POSITION;
     float2 TexCoord    : TEXCOORD;
-    float4 Position    : SV_Position;
+    float4 Position    : SV_POSITION;
     float3 NormalVS    : NORMAL;
     float3 TangentVS   : TANGENT;      // View space tangent.
     float3 BinormalVS  : BINORMAL;     // View space binormal.
@@ -24,7 +24,7 @@ StructuredBuffer<uint>  LightIndexList : register(t6);
 SamplerState LinearRepeatSampler : register(s0);
 
 [earlydepthstencil]
-float4 main(PixelShaderInput IN) : SV_Target0
+float4 main(VertexShaderOutput IN) : SV_Target0
 {
     const float4 eyePos = { 0, 0, 0, 1 };
 
@@ -46,23 +46,25 @@ float4 main(PixelShaderInput IN) : SV_Target0
     uint2 tileIndex = uint2(floor(IN.Position.xy / BLOCK_SIZE));
 
     // Get the start position and offset of the light in the light index list.
-    uint2 tileData = LightGrid[tileIndex];
+    uint2 tileData = LightGrid[tileIndex].rg;
     uint startOffset = tileData.x;
     uint lightCount = tileData.y;
 
     LightResult lightsRes = (LightResult)0;
     
-    for (uint i = 0; i < 50; ++i)
+    //for (uint i = 0; i < 50; ++i)
+    for (uint i = 0; i < lightCount; ++i)
     {
-        //uint lightIndex = LightIndexList[startOffset + i];
-        Light light = Lights[i];
+        uint lightIndex = LightIndexList[startOffset + i];
+        //Light light = Lights[i];
+        Light light = Lights[lightIndex];
     
         // Skip lights that are not enabled.
         if (!light.Enabled) continue;
         if (light.Type != DIRECTIONAL_LIGHT && length(light.PositionVS - P) > light.Range)
             continue;
 
-        LightResult result;
+        LightResult result = (LightResult)0;
 
         switch (light.Type)
         {

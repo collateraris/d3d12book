@@ -75,15 +75,9 @@ namespace dx12demo::core
         // Total:                              16 * 3 = 48 bytes 
     };
 
-    __declspec(align(16)) struct Light
+    __declspec(align(16))
+    struct Light
     {
-        enum class ELightType : uint32_t
-        {
-            Point = 0,
-            Spot = 1,
-            Directional = 2
-        };
-
         /**
         * Position for point and spot lights (World space).
         */
@@ -112,7 +106,8 @@ namespace dx12demo::core
         /**
          * The half angle of the spotlight cone.
          */
-        float       m_SpotlightAngle;
+        
+        float m_SpotlightAngle;
         /**
          * The range of the light.
          */
@@ -124,23 +119,22 @@ namespace dx12demo::core
         float       m_Intensity;
 
         float       m_Attenuation;
-
+        //--------------------------------------------------------------(16 bytes )
         /**
          * Disable or enable the light.
          */
-        uint32_t    m_Enabled;
-        //--------------------------------------------------------------(16 bytes )
+        int    m_Enabled;
 
         /**
          * True if the light is selected in the editor.
          */
-        uint32_t    m_Selected;
+        int    m_Selected;
         /**
          * The type of the light.
          */
-        ELightType   m_Type;
-
-        DirectX::XMFLOAT2   m_Padding;
+        int   m_Type;
+        int mPadding;
+       
         //--------------------------------------------------------------(16 bytes )
         //--------------------------------------------------------------( 16 * 7 = 112 bytes )
         Light::Light()
@@ -154,7 +148,7 @@ namespace dx12demo::core
             , m_Intensity(1.0f)
             , m_Enabled(true)
             , m_Selected(false)
-            , m_Type(ELightType::Point)
+            , m_Type(0)
         {}
     };
 }
