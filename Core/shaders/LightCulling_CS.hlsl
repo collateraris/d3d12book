@@ -75,11 +75,19 @@ void t_AppendLight(uint lightIndex)
 [numthreads(BLOCK_SIZE, BLOCK_SIZE, 1)]
 void main(ComputeShaderInput IN)
 {
+    if (IN.dispatchThreadID.x == 0 
+        && IN.dispatchThreadID.y == 0
+        && IN.dispatchThreadID.z == 0)
+    {
+        o_uLightIndexCounter[0] = 0;
+        t_uLightIndexCounter[0] = 0;
+    }
+
     // Calculate min & max depth in threadgroup / tile.
     int2 texCoord = IN.dispatchThreadID.xy;
     float f_Depth = tDepthTextureVS.Load(int3(texCoord, 0)).r;
 
-    uint u_Depth = f_Depth;
+    uint u_Depth = asuint(f_Depth);
 
     if (IN.groupIndex == 0) // Avoid contention by other threads in the group.
     {
@@ -97,8 +105,8 @@ void main(ComputeShaderInput IN)
 
     GroupMemoryBarrierWithGroupSync();
 
-    float f_MinDepth = float(gsMinDepth);
-    float f_MaxDepth = float(gsMaxDepth);
+    float f_MinDepth = asfloat(gsMinDepth);
+    float f_MaxDepth = asfloat(gsMaxDepth);
 
     float4 view_tmp; 
     // Convert depth values to view space.
@@ -174,10 +182,10 @@ void main(ComputeShaderInput IN)
     if (IN.groupIndex == 0)
     {
         InterlockedAdd(o_uLightIndexCounter[0], o_gsLightCount, o_gsLightIndexStartOffset);
-        o_uLightGrid[IN.groupID.xy] = uint2(o_gsLightIndexStartOffset, o_gsLightCount);
+        o_uLightGrid[IN.groupID.xy].rg = uint2(o_gsLightIndexStartOffset, o_gsLightCount);
 
         InterlockedAdd(t_uLightIndexCounter[0], t_gsLightCount, t_gsLightIndexStartOffset);
-        t_uLightGrid[IN.groupID.xy] = uint2(t_gsLightIndexStartOffset, t_gsLightCount);
+        t_uLightGrid[IN.groupID.xy].rg = uint2(t_gsLightIndexStartOffset, t_gsLightCount);
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -194,7 +202,7 @@ void main(ComputeShaderInput IN)
 
     if (IN.groupThreadID.x == 0 || IN.groupThreadID.y == 0)
     {
-        uDebugTexture[texCoord] = float4(0, 0, 0, 0.9f);
+        uDebugTexture[texCoord] = float4(0, 0, 1, 0.9f);
     }
     else if (IN.groupThreadID.x == 1 || IN.groupThreadID.y == 1)
     {
@@ -209,6 +217,6 @@ void main(ComputeShaderInput IN)
     }
     else
     {
-        uDebugTexture[texCoord] = float4(0, 0, 0, 1);
+        uDebugTexture[texCoord] = float4(1, 0, 1, 1);
     }
 }

@@ -1,4 +1,4 @@
-#include <ForwardPlusDemo.h>
+#include <VoxelGIDemo.h>
 
 #include <Application.h>
 #include <CommandQueue.h>
@@ -7,7 +7,7 @@
 #include <Window.h>
 #include <Material.h>
 #include <StringConstant.h>
-#include <ForwardPlusDemoUtils.h>
+#include <VoxelGIDemoUtils.h>
 
 using namespace dx12demo;
 using namespace DirectX;
@@ -39,7 +39,6 @@ void XM_CALLCONV ComputeMatrices(const XMMATRIX& model, const CXMMATRIX& view, c
     mat.ModelViewProjectionMatrix = mat.ModelViewMatrix * projection;
 }
 
-
 static void ShowHelpMarker(const char* desc)
 {
     ImGui::TextDisabled("(?)");
@@ -54,7 +53,7 @@ static void ShowHelpMarker(const char* desc)
 }
 
 
-ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height, bool vSync)
+VoxelGIDemo::VoxelGIDemo(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
     , m_Forward(0)
@@ -67,8 +66,8 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     , m_Yaw(0)
     , m_AnimateLights(false)
     , m_Shift(false)
-    , m_Width(width)
-    , m_Height(height)
+    , m_Width(0)
+    , m_Height(0)
     , m_RenderScale(1.0f)
 {
     
@@ -91,12 +90,12 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV(); 
 }
 
-ForwardPlusDemo::~ForwardPlusDemo()
+VoxelGIDemo::~VoxelGIDemo()
 {
     _aligned_free(m_pAlignedCameraData);
 }
 
-bool ForwardPlusDemo::LoadContent()
+bool VoxelGIDemo::LoadContent()
 {
     auto& app = GetApp();
     auto& device = app.GetDevice();
@@ -160,66 +159,31 @@ bool ForwardPlusDemo::LoadContent()
             
         };
 
-        m_ForwardPlusDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
+        m_VoxelGridFillDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
         {
             const auto& ambientTex = material->GetAmbientTex();
             if (!ambientTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachAmbientTex(commandList, ambientTex);
-
-            const auto& diffuseTex = material->GetDiffuseTex();
-            if (!diffuseTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachDiffuseTex(commandList, diffuseTex);
-
-            const auto& specularTex = material->GetSpecularTex();
-            if (!specularTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachSpecularTex(commandList, specularTex);
-
-            const auto& normalTex = material->GetNormalTex();
-            if (!normalTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachNormalTex(commandList, normalTex);
+                m_VoxelGrid.AttachAmbientTex(commandList, ambientTex);
         };
     }
 
     float swidth = GetClientWidth();
     float sheight = GetClientHeight();
 
-    core::ScreenToViewParams screenToViewParams;
-    screenToViewParams.m_InverseProjectionMatrix = m_Camera.get_InverseProjectionMatrix();
-    screenToViewParams.m_ScreenDimensions = { swidth, sheight };
-    m_ScreenToViewParams = screenToViewParams;
-
-    {
-        core::DispatchParams dispatchPar;
-        dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
-        const auto& numThreads = dispatchPar.m_NumThreads;
-        dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
-        m_FrustumGridDispatchParams = dispatchPar;
-    }
-
-    {
-        core::DispatchParams dispatchPar;
-        dispatchPar.m_NumThreadGroups = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
-        const auto& numThrGr = dispatchPar.m_NumThreadGroups;
-        dispatchPar.m_NumThreads = { numThrGr.x * m_LightCullingBlockSize, numThrGr.y * m_LightCullingBlockSize, 1 };
-        m_LightsCullDispatchParams = dispatchPar;
-    }
-
-    {
-        m_ComputeGridFrustums.Compute(m_ScreenToViewParams, m_FrustumGridDispatchParams);
-    }
 
     {
         fpdu::CollectLightsFromConfig(*m_Config, m_Lights);
     }
 
     {
-        m_ComputeLightCulling.InitDebugTex(swidth, sheight);
-        m_ComputeLightCulling.InitLightGridTexture(m_LightsCullDispatchParams);
-        m_ComputeLightCulling.InitLightIndexListBuffers(commandList, m_LightsCullDispatchParams, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
+        m_VoxelGrid.InitVoxelGrid(commandList);
     }
 
     {
-        m_ComputeLightsToView.InitLightsBuffer(commandList, m_Lights);
+        core::VoxelGridDebugRenderPassInfo info;
+        info.rootSignatureVersion = featureData.HighestVersion;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        m_VoxelGridDebugRP.LoadContent(&info);
     }
 
     {
@@ -252,18 +216,65 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        core::ForwardPlusRenderPassInfo info;
-        info.rootSignatureVersion = featureData.HighestVersion;
-        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
-        info.depthBufferFormat = m_RenderTarget.GetDepthStencilFormat();
-        m_ForwardPlusRenderPass.LoadContent(&info);
-    }
-
-    {
         core::QuadRenderPassInfo info;
         info.rootSignatureVersion = featureData.HighestVersion;
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
         m_QuadRenderPass.LoadContent(&info);
+    }
+
+    // Create a root signature for the forward shading (scene) pipeline.
+    {
+        // Load the  shaders.
+        ComPtr<ID3DBlob> vs;
+        ComPtr<ID3DBlob> ps;
+        ThrowIfFailed(D3DReadFileToBlob(L"ForwardVS.cso", &vs));
+        ThrowIfFailed(D3DReadFileToBlob(L"ForwardPS.cso", &ps));
+
+        // Allow input layout and deny unnecessary access to certain pipeline stages.
+        D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+            D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+            D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
+
+        CD3DX12_ROOT_PARAMETER1 rootParameters[static_cast<size_t>(SceneRootParameters::NumRootParameters)];
+        rootParameters[static_cast<int>(SceneRootParameters::MatricesCB)].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);      
+        rootParameters[static_cast<int>(SceneRootParameters::DirLight)].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
+        CD3DX12_DESCRIPTOR_RANGE1 ambientTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        rootParameters[static_cast<int>(SceneRootParameters::AmbientTex)].InitAsDescriptorTable(1, &ambientTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
+
+        CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
+
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
+        rootSignatureDescription.Init_1_1(static_cast<size_t>(SceneRootParameters::NumRootParameters), rootParameters, 1, &linearRepeatSampler, rootSignatureFlags);
+
+        m_SceneRootSignature.SetRootSignatureDesc(rootSignatureDescription.Desc_1_1, featureData.HighestVersion);
+
+        struct PipelineStateStream
+        {
+            CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+            CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+            CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+            CD3DX12_PIPELINE_STATE_STREAM_VS VS;
+            CD3DX12_PIPELINE_STATE_STREAM_PS PS;
+            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
+            CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL DepthStencilState;
+        } pipelineStateStream;
+
+        pipelineStateStream.pRootSignature = m_SceneRootSignature.GetRootSignature().Get();
+        pipelineStateStream.InputLayout = { core::PosNormTexVertex::InputElements, core::PosNormTexVertex::InputElementCount };
+        pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vs.Get());
+        pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(ps.Get());
+        pipelineStateStream.DSVFormat = m_RenderTarget.GetDepthStencilFormat();
+        pipelineStateStream.RTVFormats = m_RenderTarget.GetRenderTargetFormats();
+        pipelineStateStream.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+
+        D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
+            sizeof(PipelineStateStream), &pipelineStateStream
+        };
+        ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&m_ScenePipelineState)));
     }
 
     {
@@ -318,13 +329,13 @@ bool ForwardPlusDemo::LoadContent()
     return true;
 }
 
-void ForwardPlusDemo::UnloadContent()
+void VoxelGIDemo::UnloadContent()
 {
     m_ContentLoaded = false;
 }
 
 
-void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
+void VoxelGIDemo::OnResize(core::ResizeEventArgs& e)
 {
     super::OnResize(e);
 
@@ -341,7 +352,7 @@ void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
     }
 }
 
-void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
+void VoxelGIDemo::OnUpdate(core::UpdateEventArgs& e)
 {
     static uint64_t frameCount = 0;
     static double totalTime = 0.0;
@@ -394,6 +405,8 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
 
         // Update the projection matrix.
         m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+
+        m_InvViewProjMatrix = m_Camera.get_InverseProjectionMatrix()* m_Camera.get_InverseViewMatrix();
     }
 
     {
@@ -401,7 +414,7 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
     }
 }
 
-void ForwardPlusDemo::RescaleRenderTarget(float scale)
+void VoxelGIDemo::RescaleRenderTarget(float scale)
 {
     uint32_t width = static_cast<uint32_t>(m_Width * scale);
     uint32_t height = static_cast<uint32_t>(m_Height * scale);
@@ -412,7 +425,7 @@ void ForwardPlusDemo::RescaleRenderTarget(float scale)
     m_RenderTarget.Resize(width, height);
 }
 
-void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
+void VoxelGIDemo::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
@@ -428,8 +441,8 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     }
 
     Mat matrices;
-    auto model = XMMatrixScaling(9.999999776e-003, 9.999999776e-003, 9.999999776e-003);
-    //auto model = XMMatrixScaling(0.1, 0.1, 0.1);
+    //auto model = XMMatrixScaling(0.5, 0.5, 0.5);
+    auto model = XMMatrixScaling(1, 1, 1);
     ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
     {
@@ -439,7 +452,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     }
 
     if (m_Mode == EDemoMode::DepthBufferDebug)
-    {      
+    {
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
@@ -448,58 +461,34 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             0, 0, &m_DepthBufferRenderPass.GetSRV());
         m_DebugDepthBufferRenderPass.OnRender(commandList, e);
-       
     }
-    else
+    else if (m_Mode == EDemoMode::VoxelGridDebug)
     {
-        m_ComputeLightsToView.StartCompute(commandList);
-        m_ComputeLightsToView.Compute(commandList, m_ViewMatrix);
-
-        auto fenceValue = commandQueue->ExecuteCommandList(commandList);
-        commandQueue->WaitForFenceValue(fenceValue);
-        commandList = commandQueue->GetCommandList();
-
-        m_ComputeLightCulling.StartCompute(commandList);
-        m_ComputeLightCulling.AttachLightsBuffer(commandList, m_ComputeLightsToView.GetLightsBuffer(), m_ComputeLightsToView.GetNumLightsBuffer());
-        m_ComputeLightCulling.AttachGridViewFrustums(commandList, m_ComputeGridFrustums.GetGridFrustums());
-        m_ComputeLightCulling.AttachDepthTex(commandList, m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
-        m_ComputeLightCulling.Compute(commandList, m_ScreenToViewParams, m_LightsCullDispatchParams);
-
-        fenceValue = commandQueue->ExecuteCommandList(commandList);
-        commandQueue->WaitForFenceValue(fenceValue);
-        commandList = commandQueue->GetCommandList();
+        m_VoxelGrid.UpdateGrid(commandList, m_Camera);
+        m_VoxelGrid.AttachModelMatrix(commandList, model);
+        m_Sponza.Render(commandList, m_Frustum, m_VoxelGridFillDrawFun);
 
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
-        m_ForwardPlusRenderPass.OnPreRender(commandList, e);
-        commandList->SetGraphicsDynamicConstantBuffer(0, matrices);
-        m_ForwardPlusRenderPass.AttachLightGridTex(commandList, m_ComputeLightCulling.GetOpaqueLightGrid());
-        m_ForwardPlusRenderPass.AttachLightsSB(commandList, m_ComputeLightsToView.GetLightsBuffer());
-        m_ForwardPlusRenderPass.AttachLightIndexListSB(commandList, m_ComputeLightCulling.GetOpaqueLightIndexList());
-        m_Sponza.Render(commandList, m_Frustum, m_ForwardPlusDrawFun);
+        m_VoxelGridDebugRP.OnPreRender(commandList, e);
+        commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        commandList->SetShaderResourceView(2, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+            0, 0, &m_DepthBufferRenderPass.GetSRV());
+        m_VoxelGridDebugRP.AttachVoxelGrid(commandList, m_VoxelGrid.GetVoxelGrid());
+        m_VoxelGridDebugRP.AttachVoxelGridParams(commandList, m_VoxelGrid);
+        m_VoxelGridDebugRP.AttachInvViewProjMatrix(commandList, m_InvViewProjMatrix);
+        m_VoxelGridDebugRP.OnRender(commandList, e);
     }
-
+   
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-
-    switch (m_Mode)
-    {
-    case EDemoMode::ForwardPlus:
-    case EDemoMode::DepthBufferDebug:
-        commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        break;
-    case EDemoMode::ForwardPlusDebug:
-        commandList->TransitionBarrier(m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        break;
-    default:
-        break;
-    }
-
+    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
     commandList->Draw(3);
 
     commandQueue->ExecuteCommandList(commandList);
@@ -509,7 +498,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     m_pWindow->Present();
 }
 
-void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
+void VoxelGIDemo::OnKeyPressed(core::KeyEventArgs& e)
 {
     super::OnKeyPressed(e);
     if (!ImGui::GetIO().WantCaptureKeyboard)
@@ -568,7 +557,7 @@ void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
 
 }
 
-void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
+void VoxelGIDemo::OnKeyReleased(core::KeyEventArgs& e)
 {
     super::OnKeyReleased(e);
 
@@ -603,7 +592,7 @@ void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
         } 
 }
 
-void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
+void VoxelGIDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
 {
     super::OnMouseMoved(e);
 
@@ -620,7 +609,7 @@ void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
         }
 }
 
-void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
+void VoxelGIDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
@@ -637,12 +626,12 @@ void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
     }
 }
 
-void ForwardPlusDemo::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
+void VoxelGIDemo::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
 {
     ImGui::GetIO().FontGlobalScale = e.DPIScale;
 }
 
-void ForwardPlusDemo::OnGUI()
+void VoxelGIDemo::OnGUI()
 {
     static bool showDemoWindow = false;
 
@@ -678,13 +667,9 @@ void ForwardPlusDemo::OnGUI()
                 m_pWindow->SetFullscreen(fullscreen);
             }
 
-            if (ImGui::MenuItem("Forward+", "*", m_Mode == EDemoMode::ForwardPlus))
+            if (ImGui::MenuItem("VoxelGrid debug", "*", m_Mode == EDemoMode::VoxelGridDebug))
             {
-                m_Mode = EDemoMode::ForwardPlus;
-            }
-            if (ImGui::MenuItem("Forward+ debug", "*", m_Mode == EDemoMode::ForwardPlusDebug))
-            {
-                m_Mode = EDemoMode::ForwardPlusDebug;
+                m_Mode = EDemoMode::VoxelGridDebug;
             }
             if (ImGui::MenuItem("Depth buffer debug", "*", m_Mode == EDemoMode::DepthBufferDebug))
             {

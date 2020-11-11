@@ -56,6 +56,8 @@ set( HEADER_FILES
     inc/UploadBuffer.h
 	inc/URootObject.h
     inc/VertexBuffer.h
+	inc/VoxelGrid.h
+	inc/VoxelGridDebugRenderPass.h
     inc/Window.h
     inc/d3dx12.h
 )
@@ -106,6 +108,8 @@ set( SOURCE_FILES
     src/UploadBuffer.cpp
 	src/URootObject.cpp
     src/VertexBuffer.cpp
+	src/VoxelGrid.cpp
+	src/VoxelGridDebugRenderPass.cpp
     src/Window.cpp
 )
 
@@ -159,8 +163,13 @@ set( SHADER_FILES
 	shaders/DebugDepthBuffer_VS.hlsl
 	shaders/Quad_PS.hlsl
 	shaders/Quad_VS.hlsl
+	shaders/QuadTC_VS.hlsl
 	shaders/ForwardPlus_PS.hlsl
 	shaders/ForwardPlus_VS.hlsl
+	shaders/VoxelGridFill_VS.hlsl
+	shaders/VoxelGridFill_GS.hlsl
+	shaders/VoxelGridFill_PS.hlsl
+	shaders/VoxelGridDebug_PS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -274,6 +283,12 @@ set_source_files_properties( shaders/Quad_PS.hlsl
         VS_SHADER_VARIABLE_NAME g_Quad_PS
 )
 
+set_source_files_properties( shaders/QuadTC_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_QuadTC_VS
+)
+
 set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
@@ -320,4 +335,28 @@ set_source_files_properties( shaders/Skybox_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Skybox_PS
+)
+
+set_source_files_properties( shaders/VoxelGridFill_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_VoxelGridFill_VS
+)
+
+set_source_files_properties( shaders/VoxelGridFill_GS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Geometry
+        VS_SHADER_VARIABLE_NAME g_VoxelGridFill_GS
+)
+
+set_source_files_properties( shaders/VoxelGridFill_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_VoxelGridFill_PS
+)
+
+set_source_files_properties( shaders/VoxelGridDebug_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_VoxelGridDebug_PS
 )

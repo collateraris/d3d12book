@@ -19,6 +19,8 @@
 #include <DebugDepthBufferRenderPass.h>
 #include <ForwardPlusRenderPass.h>
 #include <QuadRenderPass.h>
+#include <VoxelGrid.h>
+#include <VoxelGridDebugRenderPass.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -26,12 +28,11 @@
 
 namespace dx12demo
 {
-	class ForwardPlusDemo : public core::Game
+	class VoxelGIDemo : public core::Game
 	{
         enum class EDemoMode
         {
-            ForwardPlus,
-            ForwardPlusDebug,
+            VoxelGridDebug,
             DepthBufferDebug,
         };
 
@@ -39,9 +40,9 @@ namespace dx12demo
 
         using super = Game;
 
-        ForwardPlusDemo(const std::wstring& name, int width, int height, bool vSync = false);
+        VoxelGIDemo(const std::wstring& name, int width, int height, bool vSync = false);
 
-        virtual ~ForwardPlusDemo();
+        virtual ~VoxelGIDemo();
         /**
          *  Load content required for the demo.
          */
@@ -90,8 +91,10 @@ namespace dx12demo
         core::EnvironmentMapRenderPass m_envRenderPass;
         core::DepthBufferRenderPass m_DepthBufferRenderPass;
         core::DebugDepthBufferRenderPass m_DebugDepthBufferRenderPass;
-        core::ForwardPlusRenderPass m_ForwardPlusRenderPass;
         core::QuadRenderPass m_QuadRenderPass;
+        core::VoxelGridDebugRenderPass m_VoxelGridDebugRP;
+
+        core::VoxelGrid m_VoxelGrid = core::VoxelGrid(32, 1200.f, 64);
 
         std::vector<core::Light> m_Lights;
 
@@ -100,33 +103,21 @@ namespace dx12demo
         DirectX::XMMATRIX m_ModelMatrix;
         DirectX::XMMATRIX m_ViewMatrix;
         DirectX::XMMATRIX m_ProjectionMatrix;
+        DirectX::XMMATRIX m_ViewProjMatrix;
+        DirectX::XMMATRIX m_InvViewProjMatrix;
 
         D3D12_RECT m_ScissorRect;
 
         core::Scene m_Sponza;
         // HDR Render target
         core::RenderTarget m_RenderTarget;
+        core::RootSignature m_SceneRootSignature;
         core::RootSignature m_QuadRootSignature;
+        Microsoft::WRL::ComPtr<ID3D12PipelineState> m_ScenePipelineState;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
-        // For the light index list, we need to make a guess as to the average 
-        // number of overlapping lights per tile. It could be possible to refine this
-        // value at runtime (if it is underestimated) but for now, I'll just take a guess
-        // of about 200 lights (which may be an overestimation, but better over than under). 
-        // The total size of the buffer will be determined by the grid size but for 16x16
-        // tiles at 1080p, we would need 120x68 tiles * 200 light indices * 4 bytes (to store a uint)
-        // making the light index list 6,528,000 bytes (6.528 MB)
-        const uint32_t AVERAGE_OVERLAPPING_LIGHTS_PER_TILE = 200u;
-        uint16_t m_LightCullingBlockSize = 16;
-        core::GridViewFrustum m_ComputeGridFrustums;
-        core::LightCulling m_ComputeLightCulling;
-        core::LightsToView m_ComputeLightsToView;
-        core::DispatchParams m_FrustumGridDispatchParams;
-        core::DispatchParams m_LightsCullDispatchParams;
-        core::ScreenToViewParams m_ScreenToViewParams;
-
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_MaterialDrawFun;
-        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_ForwardPlusDrawFun;
+        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_VoxelGridFillDrawFun;
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_DepthBufferDrawFun;
 
         int m_Width;
@@ -160,12 +151,12 @@ namespace dx12demo
         // Set to true if the Shift key is pressed.
         bool m_Shift;
 
-        const float m_CameraStep = 5.f;
+        const float m_CameraStep = 25.f;
 
         double m_FPS = 0.;
 
         bool m_ContentLoaded;
 
-        EDemoMode m_Mode = EDemoMode::ForwardPlus;
+        EDemoMode m_Mode = EDemoMode::DepthBufferDebug;
 	};
 }
