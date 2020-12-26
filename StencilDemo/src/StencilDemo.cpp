@@ -584,25 +584,25 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
         commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::RenderPassData), m_PassData);
-        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Opaque], matrices);
+        DrawRenderItem(commandList, m_RenderItems[ERenderLayer::Opaque], matrices);
 
         // Mark the visible mirror pixels in the stencil buffer with the value 1
         commandList->SetStencilRef(1);
         commandList->SetPipelineState(m_MarkStencilMirrorsScenePipelineState);
-        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Mirrors], matrices);
+        DrawRenderItem(commandList, m_RenderItems[ERenderLayer::Mirrors], matrices);
 
         commandList->SetPipelineState(m_DrawStencilReflectionsScenePipelineState);
         commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_ReflectionDirLight);
-        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Reflected], matrices);
+        DrawRenderItem(commandList, m_RenderItems[ERenderLayer::Reflected], matrices);
 
         commandList->SetGraphicsDynamicStructuredBuffer(static_cast<int>(stdu::SceneRootParameters::DirLight), m_DirLight);
         commandList->SetStencilRef(0);
 
         commandList->SetPipelineState(m_TransparentScenePipelineState);
-        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Transparent], matrices);
+        DrawRenderItem(commandList, m_RenderItems[ERenderLayer::Transparent], matrices);
 
         commandList->SetPipelineState(m_ShadowScenePipelineState);
-        DrawRenderItem(*commandList, m_RenderItems[ERenderLayer::Shadow], matrices);
+        DrawRenderItem(commandList, m_RenderItems[ERenderLayer::Shadow], matrices);
     }
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
@@ -621,7 +621,7 @@ void StencilDemo::OnRender(core::RenderEventArgs& e)
     m_pWindow->Present();
 }
 
-void StencilDemo::DrawRenderItem(core::CommandList& commandList,
+void StencilDemo::DrawRenderItem(std::shared_ptr<core::CommandList>& commandList,
     const std::vector<stdu::RenderItem>& items, const stdu::Mat& matricesWithWorldIndentity)
 {
     for (const auto& item : items)
@@ -630,18 +630,18 @@ void StencilDemo::DrawRenderItem(core::CommandList& commandList,
         {
             stdu::Mat matrices;
             ComputeMatrices(item.worldMatrix, m_ViewMatrix, m_ProjectionMatrix, matrices);
-            commandList.SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::MatricesCB), matrices);
+            commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::MatricesCB), matrices);
         }
         else
         {
-            commandList.SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::MatricesCB), matricesWithWorldIndentity);
+            commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::MatricesCB), matricesWithWorldIndentity);
         }
 
         auto& ambientTex = m_Textures[static_cast<ETexture>(item.tex_index)];
-        commandList.SetShaderResourceView(static_cast<int>(stdu::SceneRootParameters::AmbientTex), 0, ambientTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        commandList->SetShaderResourceView(static_cast<int>(stdu::SceneRootParameters::AmbientTex), 0, ambientTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
         auto& materials = m_Materials[static_cast<EMaterial>(item.mat_index)];
-        commandList.SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::Materials), materials);
+        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(stdu::SceneRootParameters::Materials), materials);
 
         auto& mesh = m_Meshes[static_cast<EMeshes>(item.mesh_index)];
         if (item.bUseSubmesh)

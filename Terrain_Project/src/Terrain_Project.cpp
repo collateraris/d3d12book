@@ -159,7 +159,7 @@ bool ForwardPlusDemo::LoadContent()
 
     {
         core::EnvironmentMapRenderPassInfo envInfo;
-        envInfo.commandList = &*commandList;
+        envInfo.commandList = commandList;
         envInfo.camera = &m_Camera;
         envInfo.cubeMapSize = 1024;
         envInfo.cubeMapDepthOrArraySize = 6;
@@ -415,7 +415,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
         commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
-        m_Scene.Render(*commandList, m_Frustum);
+        m_Scene.Render(commandList, m_Frustum);
 
         std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
         {
