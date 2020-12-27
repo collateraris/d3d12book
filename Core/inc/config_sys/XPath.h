@@ -57,40 +57,30 @@ namespace dx12demo::core
             }
 
             template<typename T>
-            T TextValue(const std::string& text);
+            T TextValue(const std::string& text)
+            {
+                std::stringstream ss(text);
+                T val;
+                ss >> val;
+                return val;
+            }
 
             template<>
-            float TextValue(const std::string& text);
+            float TextValue(const std::string& text)
+            {
+                float val = ::atof(text.c_str());
+                return val;
+            }
 
             template<>
-            std::wstring TextValue(const std::string& text);
+            std::wstring TextValue(const std::string& text)
+            {
+                std::wstring val(text.cbegin(), text.cend());
+                return val;
+            }
         };
 
         // ------------------------------------------------------------------ //
-
-        template<typename T>
-        T XPath::TextValue(const std::string& text)
-        {
-            std::stringstream ss(text);
-            T val;
-            ss >> val;
-            return val;
-        }
-
-        template<>
-        float XPath::TextValue(const std::string& text)
-        {
-            float val = ::atof(text.c_str());
-            return val;
-        }
-
-        template<>
-        std::wstring XPath::TextValue(const std::string& text)
-        {
-            std::wstring val(text.cbegin(), text.cend());
-            return val;
-        }
-
         template<typename T>
         T XPath::GetValueText()
         {

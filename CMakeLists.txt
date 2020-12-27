@@ -39,5 +39,5 @@ add_subdirectory( ForwardPlusDemo )
 add_subdirectory( VoxelGIDemo )
 
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT ForwardPlusDemo
+    VS_STARTUP_PROJECT Terrain_Project
 )

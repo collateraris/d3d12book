@@ -184,10 +184,13 @@ void CommandList::CopyBuffer(Buffer& buffer, size_t numElements, size_t elementS
     }
     else
     {
+        auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, flags);
+
         ThrowIfFailed(device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            &heapProp,
             D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Buffer(bufferSize, flags),
+            &resDesc,
             D3D12_RESOURCE_STATE_COMMON,
             nullptr,
             IID_PPV_ARGS(&d3d12Resource)));
@@ -197,12 +200,14 @@ void CommandList::CopyBuffer(Buffer& buffer, size_t numElements, size_t elementS
 
         if (bufferData != nullptr)
         {
+            auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+            auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
             // Create an upload resource to use as an intermediate buffer to copy the buffer resource 
             ComPtr<ID3D12Resource> uploadResource;
             ThrowIfFailed(device->CreateCommittedResource(
-                &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+                &heapProp,
                 D3D12_HEAP_FLAG_NONE,
-                &CD3DX12_RESOURCE_DESC::Buffer(bufferSize),
+                &resDesc,
                 D3D12_RESOURCE_STATE_GENERIC_READ,
                 nullptr,
                 IID_PPV_ARGS(&uploadResource)));
@@ -447,9 +452,10 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
 
         auto device = GetApp().GetDevice();
         Microsoft::WRL::ComPtr<ID3D12Resource> textureResource;
+        auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
         ThrowIfFailed(device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            &heapProp,
             D3D12_HEAP_FLAG_NONE,
             &textureDesc,
             D3D12_RESOURCE_STATE_COMMON,
@@ -513,12 +519,15 @@ void CommandList::CopyTextureSubresource(Texture& texture, uint32_t firstSubreso
 
     UINT64 requiredSize = GetRequiredIntermediateSize(destinationResource.Get(), firstSubresource, numSubresources);
 
+    auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+    auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(requiredSize);
+
     // Create a temporary (intermediate) resource for uploading the subresources
     ComPtr<ID3D12Resource> intermediateResource;
     ThrowIfFailed(device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+        &heapProp,
         D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(requiredSize),
+        &resDesc,
         D3D12_RESOURCE_STATE_GENERIC_READ,
         nullptr,
         IID_PPV_ARGS(&intermediateResource)
@@ -711,7 +720,8 @@ void CommandList::GenerateMips(Texture& texture)
     }
 
     // Generate mips with the UAV compatible resource.
-    GenerateMips_UAV(Texture(uavResource, texture.GetTextureUsage()), Texture::IsSRGBFormat(resourceDesc.Format));
+    Texture texGenMipUAV(uavResource, texture.GetTextureUsage());
+    GenerateMips_UAV(texGenMipUAV, Texture::IsSRGBFormat(resourceDesc.Format));
 
     if (aliasResource)
     {
@@ -1086,8 +1096,10 @@ void CommandList::PanoToCubemap(Texture& cubemapTexture, const Texture& panoText
         stagingDesc.Format = Texture::GetUAVCompatableFormat(cubemapDesc.Format);
         stagingDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+        auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
         ThrowIfFailed(device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            &heapProp,
             D3D12_HEAP_FLAG_NONE,
             &stagingDesc,
             D3D12_RESOURCE_STATE_COPY_DEST,
