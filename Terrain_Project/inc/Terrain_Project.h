@@ -11,6 +11,7 @@
 #include <Scene.h>
 #include <Terrain.h>
 #include <Frustum.h>
+#include <SkyDoom.h>
 
 #include <EnvironmentMapRenderPass.h>
 
@@ -77,13 +78,14 @@ namespace dx12demo
 
     private:
         
-        core::EnvironmentMapRenderPass m_envRenderPass;
+        std::shared_ptr<core::SkyDoomCommon> m_skydoomRP;
 
         float m_FoV;
 
         DirectX::XMMATRIX m_ModelMatrix;
         DirectX::XMMATRIX m_ViewMatrix;
         DirectX::XMMATRIX m_ProjectionMatrix;
+        DirectX::XMMATRIX m_ViewProjectionMatrix;
 
         D3D12_RECT m_ScissorRect;
 
@@ -103,7 +105,7 @@ namespace dx12demo
         int m_Height;
         float m_RenderScale;
 
-        core::Camera m_Camera;
+        std::shared_ptr<core::Camera> m_Camera;
         //CameraEuler m_CameraEuler;
         struct alignas(16) CameraData
         {

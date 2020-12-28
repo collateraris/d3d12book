@@ -48,6 +48,7 @@ set( HEADER_FILES
     inc/Scene.h
     inc/SceneNode.h
 	inc/ShaderCommonInclude.h
+	inc/SkyDoom.h
     inc/StructuredBuffer.h
 	inc/Terrain.h
     inc/Texture.h
@@ -102,6 +103,7 @@ set( SOURCE_FILES
     src/RootSignature.cpp
 	src/Scene.cpp
     src/SceneNode.cpp
+	src/SkyDoom.cpp
     src/StructuredBuffer.cpp
 	src/Terrain.cpp
     src/Texture.cpp
@@ -154,6 +156,7 @@ set( SHADER_FILES
     shaders/ImGUI_PS.hlsl
 	shaders/Skybox_VS.hlsl
     shaders/Skybox_PS.hlsl
+	shaders/SkyDoomGradient_PS.hlsl
 	shaders/GridViewFrustums_CS.hlsl
 	shaders/LightCulling_CS.hlsl
 	shaders/LightsToView_CS.hlsl
@@ -335,6 +338,12 @@ set_source_files_properties( shaders/Skybox_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Skybox_PS
+)
+
+set_source_files_properties( shaders/SkyDoomGradient_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_SkyDoomGradient_PS
 )
 
 set_source_files_properties( shaders/VoxelGridFill_VS.hlsl

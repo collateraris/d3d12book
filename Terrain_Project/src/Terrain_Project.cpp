@@ -73,17 +73,19 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
-    m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_Camera.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
+    m_Camera = std::make_shared<core::Camera>();
 
-    m_ViewMatrix = m_Camera.get_ViewMatrix();
-    m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+    m_Camera->set_LookAt(cameraPos, cameraTarget, cameraUp);
+    m_Camera->set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
+
+    m_ViewMatrix = m_Camera->get_ViewMatrix();
+    m_ProjectionMatrix = m_Camera->get_ProjectionMatrix();
 
     m_pAlignedCameraData = (CameraData*)_aligned_malloc(sizeof(CameraData), 16);
 
-    m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
-    m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
-    m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
+    m_pAlignedCameraData->m_InitialCamPos = m_Camera->get_Translation();
+    m_pAlignedCameraData->m_InitialCamRot = m_Camera->get_Rotation();
+    m_pAlignedCameraData->m_InitialFov = m_Camera->get_FoV();
     /*
     m_CameraEuler.set_LookAt(cameraPos, cameraTarget, cameraUp);
     m_CameraEuler.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
@@ -158,18 +160,8 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        core::EnvironmentMapRenderPassInfo envInfo;
-        envInfo.commandList = commandList;
-        envInfo.camera = &m_Camera;
-        envInfo.cubeMapSize = 1024;
-        envInfo.cubeMapDepthOrArraySize = 6;
-        envInfo.texturePath = L"Assets/Textures/grace-new.hdr";
-        envInfo.textureName = L"Grace Cathedral Cubemap";
-        envInfo.rootSignatureVersion = featureData.HighestVersion;
-        envInfo.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
-        m_envRenderPass.LoadContent(&envInfo);
+        m_skydoomRP = core::SkyDoomFabric::GetGradientType(m_Camera, m_RenderTarget.GetRenderTargetFormats(), depthBufferFormat, featureData.HighestVersion);
     }
-
 
     // Create a root signature for the forward shading (scene) pipeline.
     {
@@ -295,9 +287,9 @@ void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
         m_Width = std::max(1, e.Width);
         m_Height = std::max(1, e.Height);
 
-        float fov = m_Camera.get_FoV();
+        float fov = m_Camera->get_FoV();
         float aspectRatio = m_Width / (float)m_Height;
-        m_Camera.set_Projection(fov, aspectRatio, 0.1f, 100.0f);
+        m_Camera->set_Projection(fov, aspectRatio, 0.1f, 100.0f);
         //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
 
         RescaleRenderTarget(m_RenderScale);
@@ -335,19 +327,14 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
 
         XMVECTOR cameraTranslate = XMVectorSet(m_Right - m_Left, 0.0f, m_Forward - m_Backward, 1.0f) * speedMultipler * static_cast<float>(e.ElapsedTime);
         XMVECTOR cameraPan = XMVectorSet(0.0f, m_Up - m_Down, 0.0f, 1.0f) * speedMultipler * static_cast<float>(e.ElapsedTime);
-        m_Camera.Translate(cameraTranslate, core::ESpace::Local);
-        m_Camera.Translate(cameraPan, core::ESpace::Local);
+        m_Camera->Translate(cameraTranslate, core::ESpace::Local);
+        m_Camera->Translate(cameraPan, core::ESpace::Local);
 
         XMVECTOR cameraRotation = XMQuaternionRotationRollPitchYaw(XMConvertToRadians(m_Pitch), XMConvertToRadians(m_Yaw), 0.0f);
-        m_Camera.set_Rotation(cameraRotation);
+        m_Camera->set_Rotation(cameraRotation);
 
         float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
-        m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
-    }
-    {
-        auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
-        auto commandList = commandQueue->GetCommandList();
-        m_envRenderPass.OnUpdate(commandList, e);
+        m_Camera->set_Projection(m_Camera->get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
     }
 
     {
@@ -356,14 +343,20 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
         const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
         m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
-        m_ViewMatrix = m_Camera.get_ViewMatrix();
+        m_ViewMatrix = m_Camera->get_ViewMatrix();
 
         // Update the projection matrix.
-        m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+        m_ProjectionMatrix = m_Camera->get_ProjectionMatrix();
+
+        m_ViewProjectionMatrix = m_ViewMatrix * m_ProjectionMatrix;
+
+        auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
+        auto commandList = commandQueue->GetCommandList();
+        m_skydoomRP->OnUpdate(commandList, e);
     }
 
     {
-        m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera.get_ViewMatrix(), m_Camera.get_ProjectionMatrix());
+        m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera->get_ViewMatrix(), m_Camera->get_ProjectionMatrix());
     }
 }
 
@@ -399,9 +392,10 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        m_envRenderPass.OnRender(commandList, e);
+        m_skydoomRP->OnRender(commandList, e);
     }
 
+    
     commandList->SetPipelineState(m_ScenePipelineState);
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
@@ -430,6 +424,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
         //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
     }
+    
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
@@ -566,12 +561,12 @@ void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
-        auto fov = m_Camera.get_FoV();
+        auto fov = m_Camera->get_FoV();
 
         fov -= e.WheelDelta;
         fov = std::clamp(fov, 12.0f, 90.0f);
 
-        m_Camera.set_FoV(fov);
+        m_Camera->set_FoV(fov);
 
         //m_CameraEuler.ScrollProcessing(e);
         //auto fov = m_CameraEuler.get_FoV();
