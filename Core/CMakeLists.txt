@@ -3,6 +3,7 @@ cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this fil
 set( HEADER_FILES 
     inc/DX12LibPCH.h
     inc/Application.h
+	inc/BitmapClouds.h
 	inc/BoundingVolumesPrimitive.h
     inc/Buffer.h
     inc/ByteAddressBuffer.h
@@ -65,6 +66,7 @@ set( HEADER_FILES
 
 set( SOURCE_FILES
     src/Application.cpp
+	src/BitmapClouds.cpp
     src/Buffer.cpp
     src/ByteAddressBuffer.cpp
 	src/Camera.cpp
@@ -173,6 +175,8 @@ set( SHADER_FILES
 	shaders/VoxelGridFill_GS.hlsl
 	shaders/VoxelGridFill_PS.hlsl
 	shaders/VoxelGridDebug_PS.hlsl
+	shaders/BitmapClouds_PS.hlsl
+	shaders/BitmapClouds_VS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -338,6 +342,18 @@ set_source_files_properties( shaders/Skybox_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Skybox_PS
+)
+
+set_source_files_properties( shaders/BitmapClouds_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_BitmapClouds_VS
+)
+
+set_source_files_properties( shaders/BitmapClouds_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_BitmapClouds_PS
 )
 
 set_source_files_properties( shaders/SkyDoomGradient_PS.hlsl

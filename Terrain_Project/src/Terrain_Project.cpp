@@ -163,6 +163,15 @@ bool ForwardPlusDemo::LoadContent()
         m_skydoomRP = core::SkyDoomFabric::GetGradientType(m_Camera, m_RenderTarget.GetRenderTargetFormats(), depthBufferFormat, featureData.HighestVersion);
     }
 
+    {
+        core::BitmapCloudsRenderPassInfo info;
+        info.camera = m_Camera;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        info.depthBufFormat = depthBufferFormat;
+        info.rootSignatureVersion = featureData.HighestVersion;
+        m_bitmapCloudsRP.LoadContent(&info);
+    }
+
     // Create a root signature for the forward shading (scene) pipeline.
     {
         commandList->LoadTextureFromFile(m_TerrainTexture, L"Assets/Textures/terrain1.dds");
@@ -353,6 +362,10 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
         m_skydoomRP->OnUpdate(commandList, e);
+        m_bitmapCloudsRP.OnUpdate(commandList, e);
+
+        auto fenceValue = commandQueue->ExecuteCommandList(commandList);
+        commandQueue->WaitForFenceValue(fenceValue);
     }
 
     {
@@ -393,6 +406,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     // Render the skybox.
     {
         m_skydoomRP->OnRender(commandList, e);
+        m_bitmapCloudsRP.OnRender(commandList, e);
     }
 
     
@@ -411,18 +425,6 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         
         m_Scene.Render(commandList, m_Frustum);
 
-        std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
-        {
-            if (!material->GetAmbientTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        };
-
-        model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
-        ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
-
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
-
-        //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
     }
     
 
