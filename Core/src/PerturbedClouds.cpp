@@ -1,4 +1,4 @@
-#include <BitmapClouds.h>
+#include <PerturbedClouds.h>
 
 #include <Application.h>
 #include <CommandQueue.h>
@@ -8,7 +8,7 @@
 #include <cassert>
 
 #include <BitmapClouds_VS.h>
-#include <BitmapClouds_PS.h>
+#include <PerturbedClouds_PS.h>
 
 using namespace dx12demo::core;
 
@@ -17,27 +17,27 @@ namespace ShaderParams
 	enum
 	{
 		b0MatCB,
-		t0Cloud1Tex,
-		t1Cloud2Tex,
+		t0CloudTex,
+		t1NoiseTex,
 		t2SkySB,
 		NumRootParameters,
 	};
 }
 
 
-BitmapClouds::BitmapClouds()
+PerturbedClouds::PerturbedClouds()
+{
+	m_SkyBufferStruct[0] = { m_translation, m_scale, m_brightness };
+}
+
+PerturbedClouds::~PerturbedClouds()
 {
 
 }
 
-BitmapClouds::~BitmapClouds()
+void PerturbedClouds::LoadContent(RenderPassBaseInfo* info)
 {
-
-}
-
-void BitmapClouds::LoadContent(RenderPassBaseInfo* info)
-{
-	BitmapCloudsRenderPassInfo* sdInfo = dynamic_cast<BitmapCloudsRenderPassInfo*>(info);
+	PerturbedCloudsRenderPassInfo* sdInfo = dynamic_cast<PerturbedCloudsRenderPassInfo*>(info);
 
 	auto& app = GetApp();
 	auto& device = app.GetDevice();
@@ -46,8 +46,8 @@ void BitmapClouds::LoadContent(RenderPassBaseInfo* info)
 
 	m_SkyPlaneMesh = Mesh::CreateSkyPlane(*commandList, sdInfo->skyPlaneResolution, sdInfo->skyPlaneWidth, sdInfo->skyPlaneTop, sdInfo->skyPlaneBottom, sdInfo->textureRepeat, true);
 
-	commandList->LoadTextureFromFile(m_CloudTex1, sdInfo->cloudtex1_path);
-	commandList->LoadTextureFromFile(m_CloudTex2, sdInfo->cloudtex2_path);
+	commandList->LoadTextureFromFile(m_CloudTex, sdInfo->cloudtex_path);
+	commandList->LoadTextureFromFile(m_NoiseTex, sdInfo->noisetex_path);
 
 	commandList->CopyStructuredBuffer(m_SkyBuffer, m_SkyBufferStruct);
 
@@ -75,8 +75,8 @@ void BitmapClouds::LoadContent(RenderPassBaseInfo* info)
 		CD3DX12_ROOT_PARAMETER1 rootParameters[ShaderParams::NumRootParameters];
 
 		rootParameters[ShaderParams::b0MatCB].InitAsConstants(sizeof(DirectX::XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-		rootParameters[ShaderParams::t0Cloud1Tex].InitAsDescriptorTable(1, &cloudTex1DescRange, D3D12_SHADER_VISIBILITY_PIXEL);
-		rootParameters[ShaderParams::t1Cloud2Tex].InitAsDescriptorTable(1, &cloudTex2DescRange, D3D12_SHADER_VISIBILITY_PIXEL);
+		rootParameters[ShaderParams::t0CloudTex].InitAsDescriptorTable(1, &cloudTex1DescRange, D3D12_SHADER_VISIBILITY_PIXEL);
+		rootParameters[ShaderParams::t1NoiseTex].InitAsDescriptorTable(1, &cloudTex2DescRange, D3D12_SHADER_VISIBILITY_PIXEL);
 		rootParameters[ShaderParams::t2SkySB].InitAsDescriptorTable(1, &skySBDescRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
 		CD3DX12_STATIC_SAMPLER_DESC linearRepeatSampler(0, D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR);
@@ -123,7 +123,7 @@ void BitmapClouds::LoadContent(RenderPassBaseInfo* info)
 		skyPlanePsoStream.InputLayout = { core::PosNormTexVertex::InputElements, core::PosNormTexVertex::InputElementCount };
 		skyPlanePsoStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		skyPlanePsoStream.VS = { g_BitmapClouds_VS, sizeof(g_BitmapClouds_VS) };
-		skyPlanePsoStream.PS = { g_BitmapClouds_PS, sizeof(g_BitmapClouds_PS) };
+		skyPlanePsoStream.PS = { g_PerturbedClouds_PS, sizeof(g_PerturbedClouds_PS) };
 		skyPlanePsoStream.SampleMask = UINT_MAX;
 		skyPlanePsoStream.NumRenderTargets = 1;
 		skyPlanePsoStream.SampleDesc.Count = 1;
@@ -138,7 +138,7 @@ void BitmapClouds::LoadContent(RenderPassBaseInfo* info)
 	}
 }
 
-void BitmapClouds::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEventArgs& e)
+void PerturbedClouds::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEventArgs& e)
 {
 	auto camPos = m_Camera->GetPosition();
 	DirectX::XMMATRIX world = DirectX::XMMatrixTranslationFromVector(camPos);
@@ -147,24 +147,17 @@ void BitmapClouds::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEve
 
 	m_MVP = world * view * proj;
 
-	m_cloud1TexTranslationX += m_cloud1TexTranslationXSpeed;
-	m_cloud1TexTranslationZ += m_cloud1TexTranslationZSpeed;
-	m_cloud2TexTranslationX += m_cloud2TexTranslationXSpeed;
-	m_cloud2TexTranslationZ += m_cloud2TexTranslationZSpeed;
+	m_translation += 0.0001f;
+	if (m_translation > 1.0f) m_translation = 0.0f;
 
-	if (m_cloud1TexTranslationX > 1.0f) m_cloud1TexTranslationX = 0.f;
-	if (m_cloud1TexTranslationZ > 1.0f) m_cloud1TexTranslationZ = 0.f;
-	if (m_cloud2TexTranslationX > 1.0f) m_cloud2TexTranslationX = 0.f;
-	if (m_cloud2TexTranslationZ > 1.0f) m_cloud2TexTranslationZ = 0.f;
-
-	m_SkyBufferStruct[0] = { m_cloud1TexTranslationX, m_cloud1TexTranslationZ, m_cloud2TexTranslationX, m_cloud2TexTranslationZ, m_brightness };
+	m_SkyBufferStruct[0].translation = m_translation;
 }
 
-void BitmapClouds::OnPreRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
+void PerturbedClouds::OnPreRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
 {
 }
 
-void BitmapClouds::OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
+void PerturbedClouds::OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
 {
 	commandList->CopyStructuredBuffer(m_SkyBuffer, m_SkyBufferStruct);
 
@@ -172,8 +165,8 @@ void BitmapClouds::OnRender(std::shared_ptr<CommandList>& commandList, RenderEve
 	commandList->SetGraphicsRootSignature(m_RootSignature);
 
 	commandList->SetGraphics32BitConstants(ShaderParams::b0MatCB, m_MVP);
-	commandList->SetShaderResourceView(ShaderParams::t0Cloud1Tex, 0, m_CloudTex1, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	commandList->SetShaderResourceView(ShaderParams::t1Cloud2Tex, 0, m_CloudTex2, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	commandList->SetShaderResourceView(ShaderParams::t0CloudTex, 0, m_CloudTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	commandList->SetShaderResourceView(ShaderParams::t1NoiseTex, 0, m_NoiseTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList->SetShaderResourceView(ShaderParams::t2SkySB, 0, m_SkyBuffer, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 	m_SkyPlaneMesh->Render(commandList);

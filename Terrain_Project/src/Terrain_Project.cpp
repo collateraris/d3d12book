@@ -164,12 +164,12 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        core::BitmapCloudsRenderPassInfo info;
+        core::PerturbedCloudsRenderPassInfo info;
         info.camera = m_Camera;
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
         info.depthBufFormat = depthBufferFormat;
         info.rootSignatureVersion = featureData.HighestVersion;
-        m_bitmapCloudsRP.LoadContent(&info);
+        m_perturbedCloudsRP.LoadContent(&info);
     }
 
     // Create a root signature for the forward shading (scene) pipeline.
@@ -362,10 +362,7 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
         m_skydoomRP->OnUpdate(commandList, e);
-        m_bitmapCloudsRP.OnUpdate(commandList, e);
-
-        auto fenceValue = commandQueue->ExecuteCommandList(commandList);
-        commandQueue->WaitForFenceValue(fenceValue);
+        m_perturbedCloudsRP.OnUpdate(commandList, e);
     }
 
     {
@@ -406,15 +403,13 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     // Render the skybox.
     {
         m_skydoomRP->OnRender(commandList, e);
-        m_bitmapCloudsRP.OnRender(commandList, e);
+        m_perturbedCloudsRP.OnRender(commandList, e);
     }
-
-    
+ 
     commandList->SetPipelineState(m_ScenePipelineState);
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
     {
-
         Mat matrices;
         auto model = XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
@@ -424,10 +419,8 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
         m_Scene.Render(commandList, m_Frustum);
-
     }
     
-
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
     commandList->SetPipelineState(m_QuadPipelineState);

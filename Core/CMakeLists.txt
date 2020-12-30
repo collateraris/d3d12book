@@ -39,6 +39,7 @@ set( HEADER_FILES
     inc/Mesh.h
 	inc/OcclusionCullRenderPass.h
     inc/PanoToCubemapPSO.h
+	inc/PerturbedClouds.h
 	inc/QuadRenderPass.h
 	inc/QuadTree.h
 	inc/RenderPassBase.h
@@ -97,6 +98,7 @@ set( SOURCE_FILES
     src/Mesh.cpp
 	src/OcclusionCullRenderPass.cpp
     src/PanoToCubemapPSO.cpp
+	src/PerturbedClouds.cpp
 	src/QuadRenderPass.cpp
 	src/RenderPassBase.cpp
     src/RenderTarget.cpp
@@ -177,6 +179,7 @@ set( SHADER_FILES
 	shaders/VoxelGridDebug_PS.hlsl
 	shaders/BitmapClouds_PS.hlsl
 	shaders/BitmapClouds_VS.hlsl
+	shaders/PerturbedClouds_PS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -300,6 +303,12 @@ set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/PerturbedClouds_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_PerturbedClouds_PS
 )
 
 set_source_files_properties( shaders/GridViewFrustums_CS.hlsl
