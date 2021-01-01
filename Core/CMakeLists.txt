@@ -3,6 +3,7 @@ cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this fil
 set( HEADER_FILES 
     inc/DX12LibPCH.h
     inc/Application.h
+	inc/AtmosphericScatteringSkyDoom.h
 	inc/BitmapClouds.h
 	inc/BoundingVolumesPrimitive.h
     inc/Buffer.h
@@ -67,6 +68,7 @@ set( HEADER_FILES
 
 set( SOURCE_FILES
     src/Application.cpp
+	src/AtmosphericScatteringSkyDoom.cpp
 	src/BitmapClouds.cpp
     src/Buffer.cpp
     src/ByteAddressBuffer.cpp
@@ -180,6 +182,8 @@ set( SHADER_FILES
 	shaders/BitmapClouds_PS.hlsl
 	shaders/BitmapClouds_VS.hlsl
 	shaders/PerturbedClouds_PS.hlsl
+	shaders/AtmosphericScatteringSkyDoom_VS.hlsl
+	shaders/AtmosphericScatteringSkyDoom_PS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -231,6 +235,18 @@ set_source_files_properties( ${SHADER_COMMON_FILES}
         VS_SHADER_OUTPUT_HEADER_FILE "${CMAKE_CURRENT_BINARY_DIR}/%(Filename).h"
         VS_SHADER_DISABLE_OPTIMIZATIONS $<$<CONFIG:Debug>:ON>
         VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
+)
+
+set_source_files_properties( shaders/AtmosphericScatteringSkyDoom_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_AtmosphericScatteringSkyDoom_VS
+)
+
+set_source_files_properties( shaders/AtmosphericScatteringSkyDoom_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_AtmosphericScatteringSkyDoom_PS
 )
 
 set_source_files_properties( shaders/GenerateMips_CS.hlsl

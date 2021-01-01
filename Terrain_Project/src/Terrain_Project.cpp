@@ -160,7 +160,8 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        m_skydoomRP = core::SkyDoomFabric::GetGradientType(m_Camera, m_RenderTarget.GetRenderTargetFormats(), depthBufferFormat, featureData.HighestVersion);
+        m_skydoomRP = core::SkyDoomFabric::GetAtmosphericScatteringType(m_Camera, m_RenderTarget.GetRenderTargetFormats(), depthBufferFormat, featureData.HighestVersion);
+
     }
 
     {

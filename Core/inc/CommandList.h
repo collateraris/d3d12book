@@ -129,6 +129,12 @@ namespace dx12demo::core
             CopyStructuredBuffer(structuredBuffer, bufferData.size(), sizeof(T), bufferData.data());
         }
 
+        template<typename T>
+        void CopyStructuredBuffer(StructuredBuffer& structuredBuffer, const T& bufferData)
+        {
+            CopyStructuredBuffer(structuredBuffer, 1, sizeof(T), &bufferData);
+        }
+
         /**
          * Set the current primitive topology for the rendering pipeline.
          */

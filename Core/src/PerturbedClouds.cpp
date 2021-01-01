@@ -140,7 +140,7 @@ void PerturbedClouds::LoadContent(RenderPassBaseInfo* info)
 
 void PerturbedClouds::OnUpdate(std::shared_ptr<CommandList>& commandList, UpdateEventArgs& e)
 {
-	auto camPos = m_Camera->GetPosition();
+	const auto& camPos = m_Camera->GetPosition();
 	DirectX::XMMATRIX world = DirectX::XMMatrixTranslationFromVector(camPos);
 	DirectX::XMMATRIX view = m_Camera->get_ViewMatrix();
 	DirectX::XMMATRIX proj = m_Camera->get_ProjectionMatrix();

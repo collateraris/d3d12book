@@ -5,6 +5,8 @@
 #include <CommandList.h>
 #include <DX12LibPCH.h>
 
+#include <AtmosphericScatteringSkyDoom.h>
+
 #include <cassert>
 
 #include <Skybox_VS.h>
@@ -78,6 +80,22 @@ std::shared_ptr<SkyDoomCommon> SkyDoomFabric::GetGradientType(std::shared_ptr<Ca
 	skydoom_common->LoadContent(&info);
 
 	return skydoom_common;
+}
+
+std::shared_ptr<AtmosphericScatteringSkyDoom> SkyDoomFabric::GetAtmosphericScatteringType(std::shared_ptr<Camera>& camera, D3D12_RT_FORMAT_ARRAY rtvFormats,
+	DXGI_FORMAT depthBufferFormat, D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion)
+{
+	std::shared_ptr<AtmosphericScatteringSkyDoom> skydoom_atmoshpere = std::make_shared<AtmosphericScatteringSkyDoom>();
+	AtmosphericScatteringSkyDoomRenderPassInfo info;
+
+	info.camera = camera;
+	info.rtvFormats = rtvFormats;
+	info.depthBufFormat = depthBufferFormat;
+	info.rootSignatureVersion = rootSignatureVersion;
+
+	skydoom_atmoshpere->LoadContent(&info);
+
+	return skydoom_atmoshpere;
 }
 
 SkyDoomCommon::SkyDoomCommon()

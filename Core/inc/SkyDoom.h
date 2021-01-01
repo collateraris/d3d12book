@@ -55,11 +55,16 @@ namespace dx12demo::core
 		DirectX::XMMATRIX m_MVP;
 	};
 
+	class AtmosphericScatteringSkyDoom;
+
 	class SkyDoomFabric : public URootObject
 	{
 	public:
 
 		static std::shared_ptr<SkyDoomCommon> GetGradientType(std::shared_ptr<Camera>& camera, D3D12_RT_FORMAT_ARRAY rtvFormats,
+			DXGI_FORMAT depthBufferFormat, D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion);
+
+		static std::shared_ptr<AtmosphericScatteringSkyDoom> GetAtmosphericScatteringType(std::shared_ptr<Camera>& camera, D3D12_RT_FORMAT_ARRAY rtvFormats,
 			DXGI_FORMAT depthBufferFormat, D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion);
 	};
 }

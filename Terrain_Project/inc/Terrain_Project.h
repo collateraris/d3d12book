@@ -12,6 +12,7 @@
 #include <Terrain.h>
 #include <Frustum.h>
 #include <SkyDoom.h>
+#include <AtmosphericScatteringSkyDoom.h>
 #include <PerturbedClouds.h>
 
 #include <EnvironmentMapRenderPass.h>
@@ -79,7 +80,7 @@ namespace dx12demo
 
     private:
         
-        std::shared_ptr<core::SkyDoomCommon> m_skydoomRP;
+        std::shared_ptr<core::AtmosphericScatteringSkyDoom> m_skydoomRP;
         core::PerturbedClouds m_perturbedCloudsRP;
 
         float m_FoV;
