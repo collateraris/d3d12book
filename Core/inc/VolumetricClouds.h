@@ -44,7 +44,8 @@ namespace dx12demo::core
 			float translation;
 			float scale;
 			float brightness;
-			float padding;
+			float density = 0.5;
+			float coverage = 1.0;
 		};
 
 	public:
