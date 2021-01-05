@@ -29,9 +29,9 @@ float4 main(PixelShaderInput IN) : SV_Target
 		return float4(0.81f, 0.38f, 0.66f, 1.0f);
 	}
 
-	float3 uSunPos = float3(1, 1, 1);
-	float3 rayOrigin = float3(0, 0, 0);
-	float3 rayDir = normalize(-IN.Position);
+	float3 uSunPos = float3(0, 1, 0);
+	float3 rayOrigin = float3(0, 6371e3, 0);
+	float3 rayDir = normalize(IN.Position - rayOrigin);
 
 	// Determine the gradient color by interpolating between the apex and center based on the height of the pixel in the sky dome.
 	return float4(atmosphere(rayDir, rayOrigin, uSunPos, 22.0), 1.0f);

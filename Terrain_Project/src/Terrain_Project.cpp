@@ -165,12 +165,12 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        core::PerturbedCloudsRenderPassInfo info;
+        core::VolumetricCloudsRenderPassInfo info;
         info.camera = m_Camera;
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
         info.depthBufFormat = depthBufferFormat;
         info.rootSignatureVersion = featureData.HighestVersion;
-        m_perturbedCloudsRP.LoadContent(&info);
+        m_volumetricCloudsRP.LoadContent(&info);
     }
 
     // Create a root signature for the forward shading (scene) pipeline.
@@ -363,7 +363,7 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
         m_skydoomRP->OnUpdate(commandList, e);
-        m_perturbedCloudsRP.OnUpdate(commandList, e);
+        m_volumetricCloudsRP.OnUpdate(commandList, e);
     }
 
     {
@@ -404,7 +404,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     // Render the skybox.
     {
         m_skydoomRP->OnRender(commandList, e);
-        m_perturbedCloudsRP.OnRender(commandList, e);
+        m_volumetricCloudsRP.OnRender(commandList, e);
     }
  
     commandList->SetPipelineState(m_ScenePipelineState);

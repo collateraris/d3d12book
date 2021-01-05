@@ -60,6 +60,7 @@ set( HEADER_FILES
     inc/UploadBuffer.h
 	inc/URootObject.h
     inc/VertexBuffer.h
+	inc/VolumetricClouds.h
 	inc/VoxelGrid.h
 	inc/VoxelGridDebugRenderPass.h
     inc/Window.h
@@ -116,6 +117,7 @@ set( SOURCE_FILES
     src/UploadBuffer.cpp
 	src/URootObject.cpp
     src/VertexBuffer.cpp
+	src/VolumetricClouds.cpp
 	src/VoxelGrid.cpp
 	src/VoxelGridDebugRenderPass.cpp
     src/Window.cpp
@@ -155,6 +157,13 @@ set( CONFIG_SYS_SOURCE
 
 source_group( "Source Files\\ConfigSys" FILES ${CONFIG_SYS_SOURCE} )
 
+set( STB_IMAGE_HEADERS
+    inc/stb_image/stb_image.h
+    inc/stb_image/stb_image_write.h 
+)
+
+source_group( "Header Files\\STB_Image" FILES ${STB_IMAGE_HEADERS} )
+
 set( SHADER_FILES
     shaders/GenerateMips_CS.hlsl
 	shaders/PanoToCubemap_CS.hlsl
@@ -184,6 +193,7 @@ set( SHADER_FILES
 	shaders/PerturbedClouds_PS.hlsl
 	shaders/AtmosphericScatteringSkyDoom_VS.hlsl
 	shaders/AtmosphericScatteringSkyDoom_PS.hlsl
+	shaders/VolumetricClouds_PS.hlsl
 )
 
 set( SHADER_COMMON_FILES
@@ -196,7 +206,8 @@ add_library( Core STATIC
 	${SHADER_FILES}
 	${SHADER_COMMON_FILES}
     ${IMGUI_HEADERS} ${IMGUI_SOURCE}
-	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}	
+	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}
+	${STB_IMAGE_HEADERS}	
 )
 
 # Enable C++20 compiler features.
@@ -325,6 +336,12 @@ set_source_files_properties( shaders/PerturbedClouds_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_PerturbedClouds_PS
+)
+
+set_source_files_properties( shaders/VolumetricClouds_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_VolumetricClouds_PS
 )
 
 set_source_files_properties( shaders/GridViewFrustums_CS.hlsl

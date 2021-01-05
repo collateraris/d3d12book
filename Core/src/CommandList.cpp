@@ -20,6 +20,9 @@
 #include <Scene.h>
 #include <SceneNode.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image/stb_image.h>
+
 using namespace dx12demo::core;
 
 std::map<std::wstring, ID3D12Resource* > CommandList::ms_TextureCache;
@@ -493,6 +496,106 @@ void CommandList::LoadTextureFromFile(Texture& texture, const std::wstring& file
         {
             GenerateMips(texture);
         }
+
+        // Add the texture resource to the texture cache.
+        CommandList::ms_TextureCache[fileName] = textureResource.Get();
+    }
+}
+
+void CommandList::Create3DTextureFromMany2DTextures(Texture& texture, const Create3DTextureBuildData& buildData, TextureUsage textureUsage /* = TextureUsage::Albedo*/)
+{
+    assert(buildData.folderPath.size() > 0);
+    assert(buildData.textureBaseName.size() > 0);
+    assert(buildData.fileExtensionBaseName.size() > 0);
+    assert(buildData.width > 0);
+    assert(buildData.height > 0);
+    assert(buildData.depth > 0);
+    assert(buildData.num2DImages > 0);
+    assert(buildData.numChannels > 0);
+    assert(buildData.format != DXGI_FORMAT_UNKNOWN);
+
+    int texWidth, texHeight, texChannels;
+    std::size_t Image3DSize = buildData.width * buildData.height * buildData.depth * buildData.numChannels;
+
+    std::vector<uint8_t> texture3DPixels(Image3DSize, 0);
+    auto fileBeginNameFullPath = buildData.folderPath + buildData.textureBaseName;
+
+    for (int z = 0; z < buildData.num2DImages; z++)
+    {
+        std::string imageIdentifier = fileBeginNameFullPath + "(" + std::to_string(z + 1) + ")" + buildData.fileExtensionBaseName;
+        const char* imagePath = imageIdentifier.c_str();
+        stbi_uc* pixels = stbi_load(imagePath, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
+        }
+
+        memcpy(&texture3DPixels[z * texWidth * texHeight * 4], pixels, static_cast<size_t>(texWidth * texHeight * 4));
+        stbi_image_free(pixels);
+    }
+
+    std::lock_guard<std::mutex> lock(CommandList::ms_TextureCacheMutex);
+    std::wstring fileName(fileBeginNameFullPath.begin(), fileBeginNameFullPath.end());
+    auto iter = CommandList::ms_TextureCache.find(fileName);
+    if (iter != CommandList::ms_TextureCache.end())
+    {
+        texture.SetTextureUsage(textureUsage);
+        texture.SetD3D12Resource(iter->second);
+        texture.CreateViews();
+        texture.SetName(fileName);
+    }
+    else
+    {
+        TexMetadata metadata;
+
+        metadata.width = buildData.width;
+        metadata.height = buildData.height;
+        metadata.depth = buildData.depth;
+        metadata.format = buildData.format;
+        metadata.dimension = TEX_DIMENSION_TEXTURE3D;
+
+        D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex3D(
+                metadata.format,
+                static_cast<UINT64>(metadata.width),
+                static_cast<UINT>(metadata.height),
+                static_cast<UINT16>(metadata.depth));
+
+        auto device = GetApp().GetDevice();
+        Microsoft::WRL::ComPtr<ID3D12Resource> textureResource;
+        auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
+        ThrowIfFailed(device->CreateCommittedResource(
+            &heapProp,
+            D3D12_HEAP_FLAG_NONE,
+            &textureDesc,
+            D3D12_RESOURCE_STATE_COMMON,
+            nullptr,
+            IID_PPV_ARGS(&textureResource)));
+
+        texture.SetTextureUsage(textureUsage);
+        texture.SetD3D12Resource(textureResource);
+        texture.CreateViews();
+        texture.SetName(fileName);
+
+        // Update the global state tracker.
+        ResourceStateTracker::AddGlobalResourceState(
+            textureResource.Get(), D3D12_RESOURCE_STATE_COMMON);
+
+        const std::size_t imageCount = 1;
+        std::vector<D3D12_SUBRESOURCE_DATA> subresources(imageCount);
+
+        for (int i = 0; i < imageCount; ++i)
+        {
+            auto& subresource = subresources[i];
+            subresource.RowPitch = 1;
+            subresource.SlicePitch = 1;
+            subresource.pData = texture3DPixels.data();
+        }
+
+        CopyTextureSubresource(
+            texture,
+            0,
+            static_cast<uint32_t>(subresources.size()),
+            subresources.data());
 
         // Add the texture resource to the texture cache.
         CommandList::ms_TextureCache[fileName] = textureResource.Get();
