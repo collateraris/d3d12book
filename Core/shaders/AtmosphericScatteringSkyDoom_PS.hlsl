@@ -12,6 +12,9 @@ struct AtmospereData
 
 #define M_PI 3.1415926535897932384626433832795
 
+static const float rPlanet = 6371e3;
+static const float rAtmos = 6471e3;
+
 StructuredBuffer<AtmospereData> AtmDataSB : register(t0);
 
 float2 rsi(in float3 r0, in float3 rd, in float sr);
@@ -24,14 +27,15 @@ float4 main(PixelShaderInput IN) : SV_Target
     float height = IN.domePosition.y;
 
 	// The value ranges from -1.0f to +1.0f so change it to only positive values.
-	if (height < -0.25)
+	if (height < -0.07)
 	{
 		return float4(0.81f, 0.38f, 0.66f, 1.0f);
 	}
 
-	float3 uSunPos = float3(0, 1, 0);
+	float3 uSunPos = float3(0.7, 0.7, 0);
 	float3 rayOrigin = float3(0, 6371e3, 0);
-	float3 rayDir = normalize(IN.Position - rayOrigin);
+	float3 pos = IN.domePosition * rAtmos;
+	float3 rayDir = normalize(pos - rayOrigin);
 
 	// Determine the gradient color by interpolating between the apex and center based on the height of the pixel in the sky dome.
 	return float4(atmosphere(rayDir, rayOrigin, uSunPos, 22.0), 1.0f);
@@ -52,8 +56,6 @@ float2 rsi(in float3 r0, in float3 rd, in float sr)
 
 float3 atmosphere(in float3 rayDir, in float3 rayOrigin, in float3 sunPos, float sunIntensity)
 {
-	const float rPlanet = 6371e3;
-	const float rAtmos = 6471e3;
 
 	float tA, tB;
 	float2 p = rsi(rayOrigin, rayDir, rAtmos);

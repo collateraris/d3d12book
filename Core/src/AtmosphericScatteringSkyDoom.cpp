@@ -44,7 +44,7 @@ void AtmosphericScatteringSkyDoom::LoadContent(RenderPassBaseInfo* info)
 	auto commandList = commandQueue->GetCommandList();
 
 	{
-		m_SkyDoomMesh = Mesh::CreateSphere(*commandList, 1, 6, true);
+		m_SkyDoomMesh = Mesh::CreateSphere(*commandList, 2, 16, true);
 
 		auto fenceValue = commandQueue->ExecuteCommandList(commandList);
 		commandQueue->WaitForFenceValue(fenceValue);

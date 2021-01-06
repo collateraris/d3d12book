@@ -1,6 +1,6 @@
 struct PixelShaderInput
 {
-	float3 TexCoord : TEXCOORD;
+	float3 domePosition : TEXCOORD;
 	float4 Position : SV_POSITION;
 };
 
@@ -11,6 +11,9 @@ struct SkyBuffer
 	float brightness;
 	float density;
 	float coverage;
+	float attenuation;
+	float attenuation2;
+	float sunIntensity;
 };
 
 static const int CLOUDS_MIN = 6415;
@@ -31,12 +34,22 @@ float cloudSampleDensity(in float3 position);
 float cloudSampleDirectDensity(in float3 position, in float3 sunDir);
 float cloudGetHeight(in float3 position);
 float remap(float value, float minValue, float maxValue, float newMinValue, float newMaxValue);
-bool crossRaySphereOutFar(in float3 ro, in float3 rd, in float3 sr, inout float3 pos);
+bool crossRaySphereOutFar(in float3 ro, in float3 rd, in float sr, out float3 pos);
 
 float4 main(PixelShaderInput IN) : SV_Target
 {
-	float3 rayDir = normalize(IN.Position - VIEW_POS);
-	float3 sunDir = (0., 1., 0.);
+	// Determine the position on the sky dome where this pixel is located.
+	float height = IN.domePosition.y;
+
+	// The value ranges from -1.0f to +1.0f so change it to only positive values.
+	if (height < -0.07)
+	{
+		return float4(0.f, 0.f, 0.f, 0.0f);
+	}
+
+	float3 pos = IN.domePosition * CLOUDS_MIN;
+	float3 rayDir = normalize(pos - VIEW_POS);
+	float3 sunDir = float3(0., 1., 0.);
 	return mainMarching(rayDir, sunDir);
 }
 
@@ -50,16 +63,23 @@ float4 mainMarching(in float3 viewDir, in float3 sunDir)
 		float3 color = float3(0., 0., 0.);
 		float transmittance = 1.0;
 
+		//if (distance(position, SPHERE_ORIGIN) >= CLOUDS_MIN)
+		//	return float4(0., 1., 1., 1.);
+
+		[unroll(128)]
 		for (int i = 0; i < 128; i++)
 		{
-
 			float density = cloudSampleDensity(position) * avrStep;
-			if (density > 0.)
-			{
-				return float4(1., 0.3, 1., 1.);
+	
+			float sunDensity = cloudSampleDirectDensity(position, sunDir);
 
-			}
+			float m2 = exp(-SkyDataSB[0].attenuation * sunDensity);
+			float m3 = SkyDataSB[0].attenuation2 * density;
+			float light = SkyDataSB[0].sunIntensity * m2 * m3;
 
+			color += light * transmittance;
+			transmittance *= exp(-SkyDataSB[0].attenuation * density);
+				
 			position += viewDir * avrStep;
 			if (length(position) > CLOUDS_MAX)
 				break;
@@ -75,6 +95,8 @@ float4 mainMarching(in float3 viewDir, in float3 sunDir)
 
 float cloudSampleDensity(in float3 position)
 {
+	position.xy += SkyDataSB[0].translation;
+
 	float4 weather = WeatherMapTex.Sample(LinearClampSampler, position.xz / 4096.0f, 0);
 	float height = cloudGetHeight(position);
 
@@ -122,7 +144,7 @@ float remap(float value, float minValue, float maxValue, float newMinValue, floa
 	return newMinValue + (value - minValue) / (maxValue - minValue) * (newMaxValue - newMinValue);
 }
 
-bool crossRaySphereOutFar(in float3 ro, in float3 rd, in float3 sr, inout float3 pos)
+bool crossRaySphereOutFar(in float3 ro, in float3 rd, in float sr, out float3 pos)
 {
 	float3 L = SPHERE_ORIGIN - ro;
 	L = normalize(L);
@@ -135,7 +157,7 @@ bool crossRaySphereOutFar(in float3 ro, in float3 rd, in float3 sr, inout float3
 	if (sqD > sqRadius) return false;
 
 	float thc = sqrt(sqRadius - sqD);
-	float delta = tca - thc;
+	float delta = thc - tca;
 
 	pos = ro + delta * rd;
 	return true;

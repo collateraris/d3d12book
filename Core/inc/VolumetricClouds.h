@@ -46,6 +46,9 @@ namespace dx12demo::core
 			float brightness;
 			float density = 0.5;
 			float coverage = 1.0;
+			float attenuation = 50.;
+			float attenuation2 = 17.;
+			float sunIntensity = 150.;
 		};
 
 	public:
@@ -64,7 +67,7 @@ namespace dx12demo::core
 
 	private:
 
-		std::unique_ptr<Mesh> m_SkyPlaneMesh;
+		std::unique_ptr<Mesh> m_SkyDoomMesh;
 		Texture m_WeatherMapTex;
 		Texture m_LowFrequency3DTex;
 		Texture m_HighFrequency3DTex;

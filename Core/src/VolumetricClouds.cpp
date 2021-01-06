@@ -7,7 +7,7 @@
 
 #include <cassert>
 
-#include <BitmapClouds_VS.h>
+#include <Skybox_VS.h>
 #include <VolumetricClouds_PS.h>
 
 using namespace dx12demo::core;
@@ -45,7 +45,7 @@ void VolumetricClouds::LoadContent(RenderPassBaseInfo* info)
 	auto commandQueue = app.GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
 	auto commandList = commandQueue->GetCommandList();
 
-	m_SkyPlaneMesh = Mesh::CreateSkyPlane(*commandList, sdInfo->skyPlaneResolution, sdInfo->skyPlaneWidth, sdInfo->skyPlaneTop, sdInfo->skyPlaneBottom, sdInfo->textureRepeat, true);
+	m_SkyDoomMesh = Mesh::CreateSphere(*commandList, 2, 16, true);
 
 	commandList->LoadTextureFromFile(m_WeatherMapTex, sdInfo->weathermap_path);
 
@@ -146,7 +146,7 @@ void VolumetricClouds::LoadContent(RenderPassBaseInfo* info)
 		skyPlanePsoStream.pRootSignature = m_RootSignature.GetRootSignature().Get();
 		skyPlanePsoStream.InputLayout = { core::PosNormTexVertex::InputElements, core::PosNormTexVertex::InputElementCount };
 		skyPlanePsoStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		skyPlanePsoStream.VS = { g_BitmapClouds_VS, sizeof(g_BitmapClouds_VS) };
+		skyPlanePsoStream.VS = { g_Skybox_VS, sizeof(g_Skybox_VS) };
 		skyPlanePsoStream.PS = { g_VolumetricClouds_PS, sizeof(g_VolumetricClouds_PS) };
 		skyPlanePsoStream.SampleMask = UINT_MAX;
 		skyPlanePsoStream.NumRenderTargets = 1;
@@ -194,5 +194,5 @@ void VolumetricClouds::OnRender(std::shared_ptr<CommandList>& commandList, Rende
 	commandList->SetShaderResourceView(ShaderParams::t2HighFreqNoiseTex, 0, m_HighFrequency3DTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList->SetShaderResourceView(ShaderParams::t3SkySB, 0, m_SkyBuffer, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-	m_SkyPlaneMesh->Render(commandList);
+	m_SkyDoomMesh->Render(commandList);
 }
