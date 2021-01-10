@@ -74,6 +74,7 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
     m_Camera = std::make_shared<core::Camera>();
+    m_atmScattSkyboxRP = std::make_shared<core::AtmosphericScatteringSkyboxRP>();
 
     m_Camera->set_LookAt(cameraPos, cameraTarget, cameraUp);
     m_Camera->set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
@@ -86,13 +87,6 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     m_pAlignedCameraData->m_InitialCamPos = m_Camera->get_Translation();
     m_pAlignedCameraData->m_InitialCamRot = m_Camera->get_Rotation();
     m_pAlignedCameraData->m_InitialFov = m_Camera->get_FoV();
-    /*
-    m_CameraEuler.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_CameraEuler.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
-
-    m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
-    m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
-    */
 
     m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
     m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -160,8 +154,12 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        m_skydoomRP = core::SkyDoomFabric::GetAtmosphericScatteringType(m_Camera, m_RenderTarget.GetRenderTargetFormats(), depthBufferFormat, featureData.HighestVersion);
-
+        core::AtmosphericScatteringSkyboxRPInfo info;
+        info.commandList = commandList;
+        info.camera = m_Camera;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        info.rootSignatureVersion = featureData.HighestVersion;
+        m_atmScattSkyboxRP->LoadContent(&info);
     }
 
     {
@@ -170,7 +168,7 @@ bool ForwardPlusDemo::LoadContent()
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
         info.depthBufFormat = depthBufferFormat;
         info.rootSignatureVersion = featureData.HighestVersion;
-        m_volumetricCloudsRP.LoadContent(&info);
+        //m_volumetricCloudsRP.LoadContent(&info);
     }
 
     // Create a root signature for the forward shading (scene) pipeline.
@@ -362,8 +360,8 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
 
         auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
         auto commandList = commandQueue->GetCommandList();
-        m_skydoomRP->OnUpdate(commandList, e);
-        m_volumetricCloudsRP.OnUpdate(commandList, e);
+        m_atmScattSkyboxRP->OnUpdate(commandList, e);
+        //m_volumetricCloudsRP.OnUpdate(commandList, e);
     }
 
     {
@@ -403,10 +401,12 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        m_skydoomRP->OnRender(commandList, e);
-        m_volumetricCloudsRP.OnRender(commandList, e);
+        m_atmScattSkyboxRP->OnRender(commandList, e);
+        //m_volumetricCloudsRP.OnRender(commandList, e);
     }
- 
+
+   
+    /*
     commandList->SetPipelineState(m_ScenePipelineState);
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
@@ -421,13 +421,14 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         
         m_Scene.Render(commandList, m_Frustum);
     }
+    */
     
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::AttachmentPoint::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     commandList->Draw(3);
 

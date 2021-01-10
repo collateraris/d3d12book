@@ -3,8 +3,6 @@ cmake_minimum_required( VERSION 3.18.3 ) # Latest version of CMake when this fil
 set( HEADER_FILES 
     inc/DX12LibPCH.h
     inc/Application.h
-	inc/AtmosphericScatteringSkyDoom.h
-	inc/BitmapClouds.h
 	inc/BoundingVolumesPrimitive.h
     inc/Buffer.h
     inc/ByteAddressBuffer.h
@@ -40,7 +38,6 @@ set( HEADER_FILES
     inc/Mesh.h
 	inc/OcclusionCullRenderPass.h
     inc/PanoToCubemapPSO.h
-	inc/PerturbedClouds.h
 	inc/QuadRenderPass.h
 	inc/QuadTree.h
 	inc/RenderPassBase.h
@@ -51,7 +48,6 @@ set( HEADER_FILES
     inc/Scene.h
     inc/SceneNode.h
 	inc/ShaderCommonInclude.h
-	inc/SkyDoom.h
     inc/StructuredBuffer.h
 	inc/Terrain.h
     inc/Texture.h
@@ -60,7 +56,6 @@ set( HEADER_FILES
     inc/UploadBuffer.h
 	inc/URootObject.h
     inc/VertexBuffer.h
-	inc/VolumetricClouds.h
 	inc/VoxelGrid.h
 	inc/VoxelGridDebugRenderPass.h
     inc/Window.h
@@ -69,8 +64,6 @@ set( HEADER_FILES
 
 set( SOURCE_FILES
     src/Application.cpp
-	src/AtmosphericScatteringSkyDoom.cpp
-	src/BitmapClouds.cpp
     src/Buffer.cpp
     src/ByteAddressBuffer.cpp
 	src/Camera.cpp
@@ -101,7 +94,6 @@ set( SOURCE_FILES
     src/Mesh.cpp
 	src/OcclusionCullRenderPass.cpp
     src/PanoToCubemapPSO.cpp
-	src/PerturbedClouds.cpp
 	src/QuadRenderPass.cpp
 	src/RenderPassBase.cpp
     src/RenderTarget.cpp
@@ -110,14 +102,12 @@ set( SOURCE_FILES
     src/RootSignature.cpp
 	src/Scene.cpp
     src/SceneNode.cpp
-	src/SkyDoom.cpp
     src/StructuredBuffer.cpp
 	src/Terrain.cpp
     src/Texture.cpp
     src/UploadBuffer.cpp
 	src/URootObject.cpp
     src/VertexBuffer.cpp
-	src/VolumetricClouds.cpp
 	src/VoxelGrid.cpp
 	src/VoxelGridDebugRenderPass.cpp
     src/Window.cpp
@@ -164,6 +154,33 @@ set( STB_IMAGE_HEADERS
 
 source_group( "Header Files\\STB_Image" FILES ${STB_IMAGE_HEADERS} )
 
+
+set( SKY_N_CLOUDS_HEADERS
+	inc/AtmosphericScatteringSkybox.h
+	inc/AtmosphericScatteringSkyDoom.h
+	inc/BitmapClouds.h
+	inc/PerturbedClouds.h
+	inc/PrecomputeParticleDensityForAtmScat.h
+	inc/PrecomputeSkyboxLUTForAtmScat.h
+	inc/SkyDoom.h
+	inc/VolumetricClouds.h
+)
+
+source_group( "Header Files\\SkyNClouds" FILES ${SKY_N_CLOUDS_HEADERS} )
+
+set( SKY_N_CLOUDS_SOURCE
+	src/AtmosphericScatteringSkybox.cpp
+	src/AtmosphericScatteringSkyDoom.cpp
+	src/BitmapClouds.cpp
+	src/PerturbedClouds.cpp
+	src/PrecomputeParticleDensityForAtmScat.cpp
+	src/PrecomputeSkyboxLUTForAtmScat.cpp
+	src/SkyDoom.cpp
+	src/VolumetricClouds.cpp
+)
+
+source_group( "Source Files\\SkyNClouds" FILES ${SKY_N_CLOUDS_SOURCE} )
+
 set( SHADER_FILES
     shaders/GenerateMips_CS.hlsl
 	shaders/PanoToCubemap_CS.hlsl
@@ -194,10 +211,14 @@ set( SHADER_FILES
 	shaders/AtmosphericScatteringSkyDoom_VS.hlsl
 	shaders/AtmosphericScatteringSkyDoom_PS.hlsl
 	shaders/VolumetricClouds_PS.hlsl
+	shaders/AtmosphericScatteringSkybox_PS.hlsl
+	shaders/PrecomputeAtmosphericScatteringSkybox_CS.hlsl
+	shaders/PrecomputeParticleDensityForAtmScat_PS.hlsl
 )
 
 set( SHADER_COMMON_FILES
 	shaders/CommonInclude.hlsl
+	shaders/AtmosphericScatteringInclude.hlsl
 )
 
 add_library( Core STATIC
@@ -207,7 +228,8 @@ add_library( Core STATIC
 	${SHADER_COMMON_FILES}
     ${IMGUI_HEADERS} ${IMGUI_SOURCE}
 	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}
-	${STB_IMAGE_HEADERS}	
+	${STB_IMAGE_HEADERS}
+	${SKY_N_CLOUDS_HEADERS} ${SKY_N_CLOUDS_SOURCE}
 )
 
 # Enable C++20 compiler features.
@@ -266,6 +288,12 @@ set_source_files_properties( shaders/GenerateMips_CS.hlsl
         VS_SHADER_VARIABLE_NAME g_GenerateMips_CS
 )
 
+set_source_files_properties( shaders/PrecomputeAtmosphericScatteringSkybox_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_PrecomputeAtmosphericScatteringSkybox_CS
+)
+
 set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
@@ -318,6 +346,12 @@ set_source_files_properties( shaders/Quad_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Quad_PS
+)
+
+set_source_files_properties( shaders/PrecomputeParticleDensityForAtmScat_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_PrecomputeParticleDensityForAtmScat_PS
 )
 
 set_source_files_properties( shaders/QuadTC_VS.hlsl
@@ -384,6 +418,12 @@ set_source_files_properties( shaders/Skybox_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Skybox_PS
+)
+
+set_source_files_properties( shaders/AtmosphericScatteringSkybox_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_AtmosphericScatteringSkybox_PS
 )
 
 set_source_files_properties( shaders/BitmapClouds_VS.hlsl

@@ -12,10 +12,8 @@
 #include <Terrain.h>
 #include <Frustum.h>
 #include <SkyDoom.h>
-#include <AtmosphericScatteringSkyDoom.h>
+#include <AtmosphericScatteringSkybox.h>
 #include <VolumetricClouds.h>
-
-#include <EnvironmentMapRenderPass.h>
 
 #include <DirectXMath.h>
 
@@ -80,8 +78,8 @@ namespace dx12demo
 
     private:
         
-        std::shared_ptr<core::AtmosphericScatteringSkyDoom> m_skydoomRP;
-        core::VolumetricClouds m_volumetricCloudsRP;
+        std::shared_ptr<core::AtmosphericScatteringSkyboxRP> m_atmScattSkyboxRP;
+        //core::VolumetricClouds m_volumetricCloudsRP;
 
         float m_FoV;
 

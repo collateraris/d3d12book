@@ -66,7 +66,7 @@ float4 mainMarching(in float3 viewDir, in float3 sunDir)
 		//if (distance(position, SPHERE_ORIGIN) >= CLOUDS_MIN)
 		//	return float4(0., 1., 1., 1.);
 
-		[unroll(128)]
+		[loop]
 		for (int i = 0; i < 128; i++)
 		{
 			float density = cloudSampleDensity(position) * avrStep;
