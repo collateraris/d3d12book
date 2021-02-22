@@ -54,7 +54,7 @@ static void ShowHelpMarker(const char* desc)
 }
 
 
-ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height, bool vSync)
+DefferedRenderDemo::DefferedRenderDemo(const std::wstring& name, int width, int height, bool vSync)
     : super(name, width, height, vSync)
     , m_ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
     , m_Forward(0)
@@ -91,12 +91,12 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV(); 
 }
 
-ForwardPlusDemo::~ForwardPlusDemo()
+DefferedRenderDemo::~DefferedRenderDemo()
 {
     _aligned_free(m_pAlignedCameraData);
 }
 
-bool ForwardPlusDemo::LoadContent()
+bool DefferedRenderDemo::LoadContent()
 {
     auto& app = GetApp();
     auto& device = app.GetDevice();
@@ -318,13 +318,13 @@ bool ForwardPlusDemo::LoadContent()
     return true;
 }
 
-void ForwardPlusDemo::UnloadContent()
+void DefferedRenderDemo::UnloadContent()
 {
     m_ContentLoaded = false;
 }
 
 
-void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
+void DefferedRenderDemo::OnResize(core::ResizeEventArgs& e)
 {
     super::OnResize(e);
 
@@ -341,7 +341,7 @@ void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
     }
 }
 
-void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
+void DefferedRenderDemo::OnUpdate(core::UpdateEventArgs& e)
 {
     static uint64_t frameCount = 0;
     static double totalTime = 0.0;
@@ -401,7 +401,7 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
     }
 }
 
-void ForwardPlusDemo::RescaleRenderTarget(float scale)
+void DefferedRenderDemo::RescaleRenderTarget(float scale)
 {
     uint32_t width = static_cast<uint32_t>(m_Width * scale);
     uint32_t height = static_cast<uint32_t>(m_Height * scale);
@@ -412,7 +412,7 @@ void ForwardPlusDemo::RescaleRenderTarget(float scale)
     m_RenderTarget.Resize(width, height);
 }
 
-void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
+void DefferedRenderDemo::OnRender(core::RenderEventArgs& e)
 {
     super::OnRender(e);
 
@@ -509,7 +509,7 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
     m_pWindow->Present();
 }
 
-void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
+void DefferedRenderDemo::OnKeyPressed(core::KeyEventArgs& e)
 {
     super::OnKeyPressed(e);
     if (!ImGui::GetIO().WantCaptureKeyboard)
@@ -568,7 +568,7 @@ void ForwardPlusDemo::OnKeyPressed(core::KeyEventArgs& e)
 
 }
 
-void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
+void DefferedRenderDemo::OnKeyReleased(core::KeyEventArgs& e)
 {
     super::OnKeyReleased(e);
 
@@ -603,7 +603,7 @@ void ForwardPlusDemo::OnKeyReleased(core::KeyEventArgs& e)
         } 
 }
 
-void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
+void DefferedRenderDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
 {
     super::OnMouseMoved(e);
 
@@ -620,7 +620,7 @@ void ForwardPlusDemo::OnMouseMoved(core::MouseMotionEventArgs& e)
         }
 }
 
-void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
+void DefferedRenderDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
@@ -637,12 +637,12 @@ void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
     }
 }
 
-void ForwardPlusDemo::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
+void DefferedRenderDemo::OnDPIScaleChanged(core::DPIScaleEventArgs& e)
 {
     ImGui::GetIO().FontGlobalScale = e.DPIScale;
 }
 
-void ForwardPlusDemo::OnGUI()
+void DefferedRenderDemo::OnGUI()
 {
     static bool showDemoWindow = false;
 

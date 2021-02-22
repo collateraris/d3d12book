@@ -3,7 +3,7 @@
 #include <Shlwapi.h>
 
 #include <Application.h>
-#include <ForwardPlusDemo.h>
+#include <DefferedRenderDemo.h>
 
 #include <dxgidebug.h>
 
@@ -31,7 +31,7 @@ int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdL
 
     auto& app = dx12demo::core::Application::Create(hInstance);
     {
-        std::shared_ptr<dx12demo::DefferedRenderDemo> demo = std::make_shared<dx12demo::DefferedRenderDemo>(L"DirectX 12 - ForwardPlusDemo", 1600, 1200);
+        std::shared_ptr<dx12demo::DefferedRenderDemo> demo = std::make_shared<dx12demo::DefferedRenderDemo>(L"DirectX 12 - DefferedRenderDemo", 1600, 1200);
         retCode = app.Run(demo);
     }
     dx12demo::core::Application::Destroy();

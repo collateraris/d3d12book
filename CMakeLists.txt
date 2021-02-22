@@ -37,7 +37,8 @@ add_subdirectory( Terrain_Project )
 add_subdirectory( StencilDemo )
 add_subdirectory( ForwardPlusDemo )
 add_subdirectory( VoxelGIDemo )
+add_subdirectory( DefferedRenderDemo )
 
 set_directory_properties( PROPERTIES 
-    VS_STARTUP_PROJECT Terrain_Project
+    VS_STARTUP_PROJECT DefferedRenderDemo
 )

@@ -19,7 +19,7 @@
 
 namespace dx12demo
 {
-	class ForwardPlusDemo : public core::Game
+	class DefferedRenderDemo : public core::Game
 	{
         struct LightBuffer
         {
@@ -32,9 +32,9 @@ namespace dx12demo
 
         using super = Game;
 
-        ForwardPlusDemo(const std::wstring& name, int width, int height, bool vSync = false);
+        DefferedRenderDemo(const std::wstring& name, int width, int height, bool vSync = false);
 
-        virtual ~ForwardPlusDemo();
+        virtual ~DefferedRenderDemo();
         /**
          *  Load content required for the demo.
          */
