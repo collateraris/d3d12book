@@ -164,19 +164,19 @@ bool DefferedRenderDemo::LoadContent()
         {
             const auto& ambientTex = material->GetAmbientTex();
             if (!ambientTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachAmbientTex(commandList, ambientTex);
+                m_DefferedRenderPass.AttachAmbientTex(commandList, ambientTex);
 
             const auto& diffuseTex = material->GetDiffuseTex();
             if (!diffuseTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachDiffuseTex(commandList, diffuseTex);
+                m_DefferedRenderPass.AttachDiffuseTex(commandList, diffuseTex);
 
             const auto& specularTex = material->GetSpecularTex();
             if (!specularTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachSpecularTex(commandList, specularTex);
+                m_DefferedRenderPass.AttachSpecularTex(commandList, specularTex);
 
             const auto& normalTex = material->GetNormalTex();
             if (!normalTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachNormalTex(commandList, normalTex);
+                m_DefferedRenderPass.AttachNormalTex(commandList, normalTex);
         };
     }
 
@@ -256,7 +256,7 @@ bool DefferedRenderDemo::LoadContent()
         info.rootSignatureVersion = featureData.HighestVersion;
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
         info.depthBufferFormat = m_RenderTarget.GetDepthStencilFormat();
-        m_ForwardPlusRenderPass.LoadContent(&info);
+        m_DefferedRenderPass.LoadContent(&info);
     }
 
     {
@@ -472,11 +472,11 @@ void DefferedRenderDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
-        m_ForwardPlusRenderPass.OnPreRender(commandList, e);
+        m_DefferedRenderPass.OnPreRender(commandList, e);
         commandList->SetGraphicsDynamicConstantBuffer(0, matrices);
-        m_ForwardPlusRenderPass.AttachLightGridTex(commandList, m_ComputeLightCulling.GetOpaqueLightGrid());
-        m_ForwardPlusRenderPass.AttachLightsSB(commandList, m_ComputeLightsToView.GetLightsBuffer());
-        m_ForwardPlusRenderPass.AttachLightIndexListSB(commandList, m_ComputeLightCulling.GetOpaqueLightIndexList());
+        m_DefferedRenderPass.AttachLightGridTex(commandList, m_ComputeLightCulling.GetOpaqueLightGrid());
+        m_DefferedRenderPass.AttachLightsSB(commandList, m_ComputeLightsToView.GetLightsBuffer());
+        m_DefferedRenderPass.AttachLightIndexListSB(commandList, m_ComputeLightCulling.GetOpaqueLightIndexList());
         m_Sponza.Render(commandList, m_Frustum, m_ForwardPlusDrawFun);
     }
 

@@ -12,6 +12,7 @@ set( HEADER_FILES
     inc/ConstantBuffer.h
 	inc/d3dUtil.h
 	inc/DebugDepthBufferRenderPass.h
+	inc/DefferedRenderPass.h
 	inc/DepthBufferRenderPass.h
     inc/DescriptorAllocation.h
     inc/DescriptorAllocator.h
@@ -72,6 +73,7 @@ set( SOURCE_FILES
     src/ConstantBuffer.cpp
 	src/d3dUtil.cpp
 	src/DebugDepthBufferRenderPass.cpp
+	src/DefferedRenderPass.cpp
 	src/DepthBufferRenderPass.cpp
     src/DescriptorAllocation.cpp
     src/DescriptorAllocator.cpp
@@ -194,6 +196,8 @@ set( SHADER_FILES
 	shaders/LightsToView_CS.hlsl
 	shaders/DepthBuffer_PS.hlsl
 	shaders/DepthBuffer_VS.hlsl
+	shaders/DefferedPass_PS.hlsl
+	shaders/DefferedPass_VS.hlsl
 	shaders/DebugDepthBuffer_PS.hlsl
 	shaders/DebugDepthBuffer_VS.hlsl
 	shaders/Quad_PS.hlsl
@@ -322,6 +326,18 @@ set_source_files_properties( shaders/DepthBuffer_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_DepthBuffer_PS
+)
+
+set_source_files_properties( shaders/DefferedPass_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_DefferedPass_VS
+)
+
+set_source_files_properties( shaders/DefferedPass_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_DefferedPass_PS
 )
 
 set_source_files_properties( shaders/DebugDepthBuffer_VS.hlsl

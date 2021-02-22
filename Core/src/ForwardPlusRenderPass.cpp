@@ -18,7 +18,7 @@ namespace ComputeParams
         t0AmbientTex,
         t1DiffuseTex,
         t2SpecularTex,
-        t3NormalTex,
+        t2NormalTex,
         t4LightGridTex,
         t5LightsSB,
         t6LightIndexListSB,
@@ -49,7 +49,7 @@ void ForwardPlusRenderPass::LoadContent(RenderPassBaseInfo* info)
     CD3DX12_DESCRIPTOR_RANGE1 specularTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
     rootParameters[ComputeParams::t2SpecularTex].InitAsDescriptorTable(1, &specularTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
     CD3DX12_DESCRIPTOR_RANGE1 normalTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-    rootParameters[ComputeParams::t3NormalTex].InitAsDescriptorTable(1, &normalTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParameters[ComputeParams::t2NormalTex].InitAsDescriptorTable(1, &normalTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
     CD3DX12_DESCRIPTOR_RANGE1 lightGridTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
     rootParameters[ComputeParams::t4LightGridTex].InitAsDescriptorTable(1, &lightGridTexDescrRange, D3D12_SHADER_VISIBILITY_PIXEL);
     CD3DX12_DESCRIPTOR_RANGE1 lightsSBDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 5);
@@ -133,7 +133,7 @@ void ForwardPlusRenderPass::AttachSpecularTex(std::shared_ptr<CommandList>& comm
 
 void ForwardPlusRenderPass::AttachNormalTex(std::shared_ptr<CommandList>& commandList, const Texture& tex)
 {
-    commandList->SetShaderResourceView(ComputeParams::t3NormalTex, 0, tex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->SetShaderResourceView(ComputeParams::t2NormalTex, 0, tex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 void ForwardPlusRenderPass::AttachLightGridTex(std::shared_ptr<CommandList>& commandList, const Texture& tex)

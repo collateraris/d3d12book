@@ -12,12 +12,7 @@
 #include <Frustum.h>
 #include <Light.h>
 #include <config_sys/Config.h>
-#include <GridViewFrustums.h>
-#include <LightCulling.h>
-#include <LightsToView.h>
-#include <DepthBufferRenderPass.h>
-#include <DebugDepthBufferRenderPass.h>
-#include <ForwardPlusRenderPass.h>
+#include <DefferedRenderPass.h>
 #include <QuadRenderPass.h>
 
 #include <EnvironmentMapRenderPass.h>
@@ -88,9 +83,7 @@ namespace dx12demo
         std::unique_ptr<core::Config> m_Config;
         
         core::EnvironmentMapRenderPass m_envRenderPass;
-        core::DepthBufferRenderPass m_DepthBufferRenderPass;
-        core::DebugDepthBufferRenderPass m_DebugDepthBufferRenderPass;
-        core::ForwardPlusRenderPass m_ForwardPlusRenderPass;
+        core::DefferedRenderPass m_DefferedRenderPass;
         core::QuadRenderPass m_QuadRenderPass;
 
         std::vector<core::Light> m_Lights;
@@ -109,25 +102,7 @@ namespace dx12demo
         core::RootSignature m_QuadRootSignature;
         Microsoft::WRL::ComPtr<ID3D12PipelineState> m_QuadPipelineState;
 
-        // For the light index list, we need to make a guess as to the average 
-        // number of overlapping lights per tile. It could be possible to refine this
-        // value at runtime (if it is underestimated) but for now, I'll just take a guess
-        // of about 200 lights (which may be an overestimation, but better over than under). 
-        // The total size of the buffer will be determined by the grid size but for 16x16
-        // tiles at 1080p, we would need 120x68 tiles * 200 light indices * 4 bytes (to store a uint)
-        // making the light index list 6,528,000 bytes (6.528 MB)
-        const uint32_t AVERAGE_OVERLAPPING_LIGHTS_PER_TILE = 200u;
-        uint16_t m_LightCullingBlockSize = 16;
-        core::GridViewFrustum m_ComputeGridFrustums;
-        core::LightCulling m_ComputeLightCulling;
-        core::LightsToView m_ComputeLightsToView;
-        core::DispatchParams m_FrustumGridDispatchParams;
-        core::DispatchParams m_LightsCullDispatchParams;
-        core::ScreenToViewParams m_ScreenToViewParams;
-
-        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_MaterialDrawFun;
-        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_ForwardPlusDrawFun;
-        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_DepthBufferDrawFun;
+        std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_DefferedRenderDrawFun;
 
         int m_Width;
         int m_Height;

@@ -149,78 +149,24 @@ bool DefferedRenderDemo::LoadContent()
     }
 
     {
-        m_MaterialDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
+        m_DefferedRenderDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
         {
-            if (!material->GetAmbientTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        };
-
-        m_DepthBufferDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
-        {
-            
-        };
-
-        m_ForwardPlusDrawFun = [&](std::shared_ptr<core::CommandList>& commandList, std::shared_ptr<core::Material>& material)
-        {
-            const auto& ambientTex = material->GetAmbientTex();
-            if (!ambientTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachAmbientTex(commandList, ambientTex);
-
             const auto& diffuseTex = material->GetDiffuseTex();
             if (!diffuseTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachDiffuseTex(commandList, diffuseTex);
+                m_DefferedRenderPass.AttachDiffuseTex(commandList, diffuseTex);
 
             const auto& specularTex = material->GetSpecularTex();
             if (!specularTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachSpecularTex(commandList, specularTex);
+                m_DefferedRenderPass.AttachSpecularTex(commandList, specularTex);
 
             const auto& normalTex = material->GetNormalTex();
             if (!normalTex.IsEmpty())
-                m_ForwardPlusRenderPass.AttachNormalTex(commandList, normalTex);
+                m_DefferedRenderPass.AttachNormalTex(commandList, normalTex);
         };
     }
 
     float swidth = GetClientWidth();
     float sheight = GetClientHeight();
-
-    core::ScreenToViewParams screenToViewParams;
-    screenToViewParams.m_InverseProjectionMatrix = m_Camera.get_InverseProjectionMatrix();
-    screenToViewParams.m_ScreenDimensions = { swidth, sheight };
-    m_ScreenToViewParams = screenToViewParams;
-
-    {
-        core::DispatchParams dispatchPar;
-        dispatchPar.m_NumThreads = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
-        const auto& numThreads = dispatchPar.m_NumThreads;
-        dispatchPar.m_NumThreadGroups = { std::ceil(numThreads.x / m_LightCullingBlockSize), std::ceil(numThreads.y / m_LightCullingBlockSize), 1 };
-        m_FrustumGridDispatchParams = dispatchPar;
-    }
-
-    {
-        core::DispatchParams dispatchPar;
-        dispatchPar.m_NumThreadGroups = { std::ceil(swidth / m_LightCullingBlockSize), std::ceil(sheight / m_LightCullingBlockSize), 1 };
-        const auto& numThrGr = dispatchPar.m_NumThreadGroups;
-        dispatchPar.m_NumThreads = { numThrGr.x * m_LightCullingBlockSize, numThrGr.y * m_LightCullingBlockSize, 1 };
-        m_LightsCullDispatchParams = dispatchPar;
-    }
-
-    {
-        m_ComputeGridFrustums.Compute(m_ScreenToViewParams, m_FrustumGridDispatchParams);
-    }
-
-    {
-        fpdu::CollectLightsFromConfig(*m_Config, m_Lights);
-    }
-
-    {
-        m_ComputeLightCulling.InitDebugTex(swidth, sheight);
-        m_ComputeLightCulling.InitLightGridTexture(m_LightsCullDispatchParams);
-        m_ComputeLightCulling.InitLightIndexListBuffers(commandList, m_LightsCullDispatchParams, AVERAGE_OVERLAPPING_LIGHTS_PER_TILE);
-    }
-
-    {
-        m_ComputeLightsToView.InitLightsBuffer(commandList, m_Lights);
-    }
 
     {
         core::EnvironmentMapRenderPassInfo envInfo;
@@ -236,27 +182,11 @@ bool DefferedRenderDemo::LoadContent()
     }
 
     {
-        core::DepthBufferRenderPassInfo info;
-        info.bufferW = swidth;
-        info.bufferH = sheight;
+        core::DefferedRenderPassInfo info;
         info.rootSignatureVersion = featureData.HighestVersion;
-        m_DepthBufferRenderPass.LoadContent(&info);
-    }
-
-    {
-        core::DebugDepthBufferRenderPassInfo info;
-        info.commandList = commandList;
-        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
-        info.rootSignatureVersion = featureData.HighestVersion;
-        m_DebugDepthBufferRenderPass.LoadContent(&info);
-    }
-
-    {
-        core::ForwardPlusRenderPassInfo info;
-        info.rootSignatureVersion = featureData.HighestVersion;
-        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
-        info.depthBufferFormat = m_RenderTarget.GetDepthStencilFormat();
-        m_ForwardPlusRenderPass.LoadContent(&info);
+        info.m_Height = sheight;
+        info.m_Width = swidth;
+        m_DefferedRenderPass.LoadContent(&info);
     }
 
     {
@@ -432,73 +362,18 @@ void DefferedRenderDemo::OnRender(core::RenderEventArgs& e)
     //auto model = XMMatrixScaling(0.1, 0.1, 0.1);
     ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
-    {
-        m_DepthBufferRenderPass.OnRender(commandList, e);
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);     
-        m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
-    }
-
-    if (m_Mode == EDemoMode::DepthBufferDebug)
-    {      
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
-        m_DebugDepthBufferRenderPass.OnPreRender(commandList, e);
-        commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        commandList->SetShaderResourceView(0, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-            0, 0, &m_DepthBufferRenderPass.GetSRV());
-        m_DebugDepthBufferRenderPass.OnRender(commandList, e);
-       
-    }
-    else
-    {
-        m_ComputeLightsToView.StartCompute(commandList);
-        m_ComputeLightsToView.Compute(commandList, m_ViewMatrix);
-
-        auto fenceValue = commandQueue->ExecuteCommandList(commandList);
-        commandQueue->WaitForFenceValue(fenceValue);
-        commandList = commandQueue->GetCommandList();
-
-        m_ComputeLightCulling.StartCompute(commandList);
-        m_ComputeLightCulling.AttachLightsBuffer(commandList, m_ComputeLightsToView.GetLightsBuffer(), m_ComputeLightsToView.GetNumLightsBuffer());
-        m_ComputeLightCulling.AttachGridViewFrustums(commandList, m_ComputeGridFrustums.GetGridFrustums());
-        m_ComputeLightCulling.AttachDepthTex(commandList, m_DepthBufferRenderPass.GetDepthBuffer(), &m_DepthBufferRenderPass.GetSRV());
-        m_ComputeLightCulling.Compute(commandList, m_ScreenToViewParams, m_LightsCullDispatchParams);
-
-        fenceValue = commandQueue->ExecuteCommandList(commandList);
-        commandQueue->WaitForFenceValue(fenceValue);
-        commandList = commandQueue->GetCommandList();
-
-        commandList->SetRenderTarget(m_RenderTarget);
-        commandList->SetViewport(m_RenderTarget.GetViewport());
-        commandList->SetScissorRect(m_ScissorRect);
-        m_ForwardPlusRenderPass.OnPreRender(commandList, e);
+        m_DefferedRenderPass.OnPreRender(commandList, e);
         commandList->SetGraphicsDynamicConstantBuffer(0, matrices);
-        m_ForwardPlusRenderPass.AttachLightGridTex(commandList, m_ComputeLightCulling.GetOpaqueLightGrid());
-        m_ForwardPlusRenderPass.AttachLightsSB(commandList, m_ComputeLightsToView.GetLightsBuffer());
-        m_ForwardPlusRenderPass.AttachLightIndexListSB(commandList, m_ComputeLightCulling.GetOpaqueLightIndexList());
-        m_Sponza.Render(commandList, m_Frustum, m_ForwardPlusDrawFun);
-    }
+        m_Sponza.Render(commandList, m_Frustum, m_DefferedRenderDrawFun);
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-
-    switch (m_Mode)
-    {
-    case EDemoMode::ForwardPlus:
-    case EDemoMode::DepthBufferDebug:
-        commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        break;
-    case EDemoMode::ForwardPlusDebug:
-        commandList->TransitionBarrier(m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        commandList->SetShaderResourceView(0, 0, m_ComputeLightCulling.GetDebugTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        break;
-    default:
-        break;
-    }
 
     commandList->Draw(3);
 

@@ -90,7 +90,7 @@ namespace dx12demo
         core::EnvironmentMapRenderPass m_envRenderPass;
         core::DepthBufferRenderPass m_DepthBufferRenderPass;
         core::DebugDepthBufferRenderPass m_DebugDepthBufferRenderPass;
-        core::ForwardPlusRenderPass m_ForwardPlusRenderPass;
+        core::ForwardPlusRenderPass m_DefferedRenderPass;
         core::QuadRenderPass m_QuadRenderPass;
 
         std::vector<core::Light> m_Lights;
