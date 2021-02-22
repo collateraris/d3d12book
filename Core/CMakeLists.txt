@@ -147,6 +147,40 @@ set( CONFIG_SYS_SOURCE
 
 source_group( "Source Files\\ConfigSys" FILES ${CONFIG_SYS_SOURCE} )
 
+set( STB_IMAGE_HEADERS
+    inc/stb_image/stb_image.h
+    inc/stb_image/stb_image_write.h 
+)
+
+source_group( "Header Files\\STB_Image" FILES ${STB_IMAGE_HEADERS} )
+
+
+set( SKY_N_CLOUDS_HEADERS
+	inc/AtmosphericScatteringSkybox.h
+	inc/AtmosphericScatteringSkyDoom.h
+	inc/BitmapClouds.h
+	inc/PerturbedClouds.h
+	inc/PrecomputeParticleDensityForAtmScat.h
+	inc/PrecomputeSkyboxLUTForAtmScat.h
+	inc/SkyDoom.h
+	inc/VolumetricClouds.h
+)
+
+source_group( "Header Files\\SkyNClouds" FILES ${SKY_N_CLOUDS_HEADERS} )
+
+set( SKY_N_CLOUDS_SOURCE
+	src/AtmosphericScatteringSkybox.cpp
+	src/AtmosphericScatteringSkyDoom.cpp
+	src/BitmapClouds.cpp
+	src/PerturbedClouds.cpp
+	src/PrecomputeParticleDensityForAtmScat.cpp
+	src/PrecomputeSkyboxLUTForAtmScat.cpp
+	src/SkyDoom.cpp
+	src/VolumetricClouds.cpp
+)
+
+source_group( "Source Files\\SkyNClouds" FILES ${SKY_N_CLOUDS_SOURCE} )
+
 set( SHADER_FILES
     shaders/GenerateMips_CS.hlsl
 	shaders/PanoToCubemap_CS.hlsl
@@ -154,6 +188,7 @@ set( SHADER_FILES
     shaders/ImGUI_PS.hlsl
 	shaders/Skybox_VS.hlsl
     shaders/Skybox_PS.hlsl
+	shaders/SkyDoomGradient_PS.hlsl
 	shaders/GridViewFrustums_CS.hlsl
 	shaders/LightCulling_CS.hlsl
 	shaders/LightsToView_CS.hlsl
@@ -170,10 +205,20 @@ set( SHADER_FILES
 	shaders/VoxelGridFill_GS.hlsl
 	shaders/VoxelGridFill_PS.hlsl
 	shaders/VoxelGridDebug_PS.hlsl
+	shaders/BitmapClouds_PS.hlsl
+	shaders/BitmapClouds_VS.hlsl
+	shaders/PerturbedClouds_PS.hlsl
+	shaders/AtmosphericScatteringSkyDoom_VS.hlsl
+	shaders/AtmosphericScatteringSkyDoom_PS.hlsl
+	shaders/VolumetricClouds_PS.hlsl
+	shaders/AtmosphericScatteringSkybox_PS.hlsl
+	shaders/PrecomputeAtmosphericScatteringSkybox_CS.hlsl
+	shaders/PrecomputeParticleDensityForAtmScat_PS.hlsl
 )
 
 set( SHADER_COMMON_FILES
 	shaders/CommonInclude.hlsl
+	shaders/AtmosphericScatteringInclude.hlsl
 )
 
 add_library( Core STATIC
@@ -182,7 +227,9 @@ add_library( Core STATIC
 	${SHADER_FILES}
 	${SHADER_COMMON_FILES}
     ${IMGUI_HEADERS} ${IMGUI_SOURCE}
-	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}	
+	${CONFIG_SYS_HEADERS} ${CONFIG_SYS_SOURCE}
+	${STB_IMAGE_HEADERS}
+	${SKY_N_CLOUDS_HEADERS} ${SKY_N_CLOUDS_SOURCE}
 )
 
 # Enable C++20 compiler features.
@@ -223,10 +270,28 @@ set_source_files_properties( ${SHADER_COMMON_FILES}
         VS_SHADER_ENABLE_DEBUG $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:ON>
 )
 
+set_source_files_properties( shaders/AtmosphericScatteringSkyDoom_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_AtmosphericScatteringSkyDoom_VS
+)
+
+set_source_files_properties( shaders/AtmosphericScatteringSkyDoom_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_AtmosphericScatteringSkyDoom_PS
+)
+
 set_source_files_properties( shaders/GenerateMips_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_GenerateMips_CS
+)
+
+set_source_files_properties( shaders/PrecomputeAtmosphericScatteringSkybox_CS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Compute
+        VS_SHADER_VARIABLE_NAME g_PrecomputeAtmosphericScatteringSkybox_CS
 )
 
 set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
@@ -283,6 +348,12 @@ set_source_files_properties( shaders/Quad_PS.hlsl
         VS_SHADER_VARIABLE_NAME g_Quad_PS
 )
 
+set_source_files_properties( shaders/PrecomputeParticleDensityForAtmScat_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_PrecomputeParticleDensityForAtmScat_PS
+)
+
 set_source_files_properties( shaders/QuadTC_VS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Vertex
@@ -293,6 +364,18 @@ set_source_files_properties( shaders/PanoToCubemap_CS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Compute
         VS_SHADER_VARIABLE_NAME g_PanoToCubemap_CS
+)
+
+set_source_files_properties( shaders/PerturbedClouds_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_PerturbedClouds_PS
+)
+
+set_source_files_properties( shaders/VolumetricClouds_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_VolumetricClouds_PS
 )
 
 set_source_files_properties( shaders/GridViewFrustums_CS.hlsl
@@ -335,6 +418,30 @@ set_source_files_properties( shaders/Skybox_PS.hlsl
     PROPERTIES
         VS_SHADER_TYPE Pixel
         VS_SHADER_VARIABLE_NAME g_Skybox_PS
+)
+
+set_source_files_properties( shaders/AtmosphericScatteringSkybox_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_AtmosphericScatteringSkybox_PS
+)
+
+set_source_files_properties( shaders/BitmapClouds_VS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Vertex
+        VS_SHADER_VARIABLE_NAME g_BitmapClouds_VS
+)
+
+set_source_files_properties( shaders/BitmapClouds_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_BitmapClouds_PS
+)
+
+set_source_files_properties( shaders/SkyDoomGradient_PS.hlsl
+    PROPERTIES
+        VS_SHADER_TYPE Pixel
+        VS_SHADER_VARIABLE_NAME g_SkyDoomGradient_PS
 )
 
 set_source_files_properties( shaders/VoxelGridFill_VS.hlsl

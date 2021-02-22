@@ -99,7 +99,7 @@ namespace dx12demo
 
         void OnGUI();
 
-        void DrawRenderItem(core::CommandList& commandList, 
+        void DrawRenderItem(std::shared_ptr<core::CommandList>& ,
             const std::vector<stdu::RenderItem>& items, const stdu::Mat& matricesWithWorldIndentity);
 
     private:

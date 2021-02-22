@@ -18,6 +18,7 @@ namespace dx12demo::core
 
 	private:
 		friend class Application;
+		friend class SkyDoomFabric;
 
 		static Application& GetApplication();
 

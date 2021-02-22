@@ -129,12 +129,36 @@ namespace dx12demo::core
             CopyStructuredBuffer(structuredBuffer, bufferData.size(), sizeof(T), bufferData.data());
         }
 
+        template<typename T>
+        void CopyStructuredBuffer(StructuredBuffer& structuredBuffer, const T& bufferData)
+        {
+            CopyStructuredBuffer(structuredBuffer, 1, sizeof(T), &bufferData);
+        }
+
         /**
          * Set the current primitive topology for the rendering pipeline.
          */
         void SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY primitiveTopology);
 
         void LoadTextureFromFile(Texture& texture, const std::wstring& fileName, TextureUsage textureUsage = TextureUsage::Albedo);
+
+        struct Create3DTextureBuildData
+        {
+            std::string folderPath = "";
+            std::string textureBaseName = "";
+            std::string fileExtensionBaseName = "";
+
+            int width = 0;
+            int height = 0;
+            int depth = 0;
+
+            int num2DImages = 0;
+            int numChannels = 0;
+
+            DXGI_FORMAT  format = DXGI_FORMAT_UNKNOWN;
+        };
+
+        void Create3DTextureFromMany2DTextures(Texture& texture, const Create3DTextureBuildData& buildData, TextureUsage textureUsage = TextureUsage::Albedo);
 
         void LoadSceneFromFile(Scene& scene, const std::wstring& filname);
 

@@ -137,8 +137,10 @@ void Texture::Resize(uint32_t width, uint32_t height, uint32_t depthOrArraySize/
 
         auto& device = GetApp().GetDevice();
 
+        auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
         ThrowIfFailed(device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            &heapProp,
             D3D12_HEAP_FLAG_NONE,
             &resDesc,
             D3D12_RESOURCE_STATE_COMMON,

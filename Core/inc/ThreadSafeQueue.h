@@ -54,7 +54,7 @@ namespace dx12demo::core
     ThreadSafeQueue<T>::ThreadSafeQueue(const ThreadSafeQueue<T>& copy)
     {
         std::lock_guard<std::mutex> lock(copy.m_Mutex);
-        m_Queue = other.m_Queue;
+        m_Queue = copy.m_Queue;
     }
 
     template<typename T>

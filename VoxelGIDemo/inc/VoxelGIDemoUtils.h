@@ -57,7 +57,7 @@ namespace dx12demo::fpdu
 			light.m_Range = item[ELightParams::Range].GetValueText<float>();
 			light.m_Intensity = item[ELightParams::Intensity].GetValueText<float>();
 			light.m_Enabled = item[ELightParams::Enabled].GetValueText<uint32_t>();
-			light.m_Type = static_cast<core::Light::ELightType>(item[ELightParams::Type].GetValueText<uint32_t>());
+			light.m_Type = item[ELightParams::Type].GetValueText<uint32_t>();
 
 			lightList.emplace_back(light);
 		}

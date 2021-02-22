@@ -1,7 +1,6 @@
 #pragma once
 
 #include <RenderPassBase.h>
-#include <RenderPassBase.h>
 #include <RootSignature.h>
 
 namespace dx12demo::core

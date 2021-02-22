@@ -73,24 +73,20 @@ ForwardPlusDemo::ForwardPlusDemo(const std::wstring& name, int width, int height
     XMVECTOR cameraTarget = XMVectorSet(0, 5, 0, 1);
     XMVECTOR cameraUp = XMVectorSet(0, 1, 0, 0);
 
-    m_Camera.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_Camera.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
+    m_Camera = std::make_shared<core::Camera>();
+    m_atmScattSkyboxRP = std::make_shared<core::AtmosphericScatteringSkyboxRP>();
 
-    m_ViewMatrix = m_Camera.get_ViewMatrix();
-    m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+    m_Camera->set_LookAt(cameraPos, cameraTarget, cameraUp);
+    m_Camera->set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
+
+    m_ViewMatrix = m_Camera->get_ViewMatrix();
+    m_ProjectionMatrix = m_Camera->get_ProjectionMatrix();
 
     m_pAlignedCameraData = (CameraData*)_aligned_malloc(sizeof(CameraData), 16);
 
-    m_pAlignedCameraData->m_InitialCamPos = m_Camera.get_Translation();
-    m_pAlignedCameraData->m_InitialCamRot = m_Camera.get_Rotation();
-    m_pAlignedCameraData->m_InitialFov = m_Camera.get_FoV();
-    /*
-    m_CameraEuler.set_LookAt(cameraPos, cameraTarget, cameraUp);
-    m_CameraEuler.set_Projection(45.0f, static_cast<float>(width) / height, SCREEN_NEAR, SCREEN_DEPTH);
-
-    m_ViewMatrix = m_CameraEuler.get_ViewMatrix();
-    m_ProjectionMatrix = m_CameraEuler.get_ProjectionMatrix();
-    */
+    m_pAlignedCameraData->m_InitialCamPos = m_Camera->get_Translation();
+    m_pAlignedCameraData->m_InitialCamRot = m_Camera->get_Rotation();
+    m_pAlignedCameraData->m_InitialFov = m_Camera->get_FoV();
 
     m_DirLight.ambientColor = { 0.05f, 0.05f, 0.05f, 1.0f };
     m_DirLight.diffuseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -158,18 +154,22 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
-        core::EnvironmentMapRenderPassInfo envInfo;
-        envInfo.commandList = &*commandList;
-        envInfo.camera = &m_Camera;
-        envInfo.cubeMapSize = 1024;
-        envInfo.cubeMapDepthOrArraySize = 6;
-        envInfo.texturePath = L"Assets/Textures/grace-new.hdr";
-        envInfo.textureName = L"Grace Cathedral Cubemap";
-        envInfo.rootSignatureVersion = featureData.HighestVersion;
-        envInfo.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
-        m_envRenderPass.LoadContent(&envInfo);
+        core::AtmosphericScatteringSkyboxRPInfo info;
+        info.commandList = commandList;
+        info.camera = m_Camera;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        info.rootSignatureVersion = featureData.HighestVersion;
+        m_atmScattSkyboxRP->LoadContent(&info);
     }
 
+    {
+        core::VolumetricCloudsRenderPassInfo info;
+        info.camera = m_Camera;
+        info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        info.depthBufFormat = depthBufferFormat;
+        info.rootSignatureVersion = featureData.HighestVersion;
+        //m_volumetricCloudsRP.LoadContent(&info);
+    }
 
     // Create a root signature for the forward shading (scene) pipeline.
     {
@@ -295,9 +295,9 @@ void ForwardPlusDemo::OnResize(core::ResizeEventArgs& e)
         m_Width = std::max(1, e.Width);
         m_Height = std::max(1, e.Height);
 
-        float fov = m_Camera.get_FoV();
+        float fov = m_Camera->get_FoV();
         float aspectRatio = m_Width / (float)m_Height;
-        m_Camera.set_Projection(fov, aspectRatio, 0.1f, 100.0f);
+        m_Camera->set_Projection(fov, aspectRatio, 0.1f, 100.0f);
         //m_CameraEuler.set_Projection(m_CameraEuler.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
 
         RescaleRenderTarget(m_RenderScale);
@@ -335,19 +335,14 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
 
         XMVECTOR cameraTranslate = XMVectorSet(m_Right - m_Left, 0.0f, m_Forward - m_Backward, 1.0f) * speedMultipler * static_cast<float>(e.ElapsedTime);
         XMVECTOR cameraPan = XMVectorSet(0.0f, m_Up - m_Down, 0.0f, 1.0f) * speedMultipler * static_cast<float>(e.ElapsedTime);
-        m_Camera.Translate(cameraTranslate, core::ESpace::Local);
-        m_Camera.Translate(cameraPan, core::ESpace::Local);
+        m_Camera->Translate(cameraTranslate, core::ESpace::Local);
+        m_Camera->Translate(cameraPan, core::ESpace::Local);
 
         XMVECTOR cameraRotation = XMQuaternionRotationRollPitchYaw(XMConvertToRadians(m_Pitch), XMConvertToRadians(m_Yaw), 0.0f);
-        m_Camera.set_Rotation(cameraRotation);
+        m_Camera->set_Rotation(cameraRotation);
 
         float aspectRatio = GetClientWidth() / static_cast<float>(GetClientHeight());
-        m_Camera.set_Projection(m_Camera.get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
-    }
-    {
-        auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
-        auto commandList = commandQueue->GetCommandList();
-        m_envRenderPass.OnUpdate(commandList, e);
+        m_Camera->set_Projection(m_Camera->get_FoV(), aspectRatio, SCREEN_NEAR, SCREEN_DEPTH);
     }
 
     {
@@ -356,14 +351,21 @@ void ForwardPlusDemo::OnUpdate(core::UpdateEventArgs& e)
         const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
         m_ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
 
-        m_ViewMatrix = m_Camera.get_ViewMatrix();
+        m_ViewMatrix = m_Camera->get_ViewMatrix();
 
         // Update the projection matrix.
-        m_ProjectionMatrix = m_Camera.get_ProjectionMatrix();
+        m_ProjectionMatrix = m_Camera->get_ProjectionMatrix();
+
+        m_ViewProjectionMatrix = m_ViewMatrix * m_ProjectionMatrix;
+
+        auto commandQueue = GetApp().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
+        auto commandList = commandQueue->GetCommandList();
+        m_atmScattSkyboxRP->OnUpdate(commandList, e);
+        //m_volumetricCloudsRP.OnUpdate(commandList, e);
     }
 
     {
-        m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera.get_ViewMatrix(), m_Camera.get_ProjectionMatrix());
+        m_Frustum.ConstructFrustum(SCREEN_DEPTH, m_Camera->get_ViewMatrix(), m_Camera->get_ProjectionMatrix());
     }
 }
 
@@ -399,14 +401,16 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
 
     // Render the skybox.
     {
-        m_envRenderPass.OnRender(commandList, e);
+        m_atmScattSkyboxRP->OnRender(commandList, e);
+        //m_volumetricCloudsRP.OnRender(commandList, e);
     }
 
+   
+    /*
     commandList->SetPipelineState(m_ScenePipelineState);
     commandList->SetGraphicsRootSignature(m_SceneRootSignature);
     //render scene
     {
-
         Mat matrices;
         auto model = XMMatrixScaling(1.f, 1.f, 1.f);
         ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
@@ -415,28 +419,16 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::DirLight), m_DirLight);
         commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, m_TerrainTexture, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         
-        m_Scene.Render(*commandList, m_Frustum);
-
-        std::function<void(std::shared_ptr<core::Material>&)> materialDrawFun = [&](std::shared_ptr<core::Material>& material)
-        {
-            if (!material->GetAmbientTex().IsEmpty())
-                commandList->SetShaderResourceView(static_cast<int>(SceneRootParameters::AmbientTex), 0, material->GetAmbientTex(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        };
-
-        model = XMMatrixScaling(0.1f, 0.1f, 0.1f);
-        ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
-
-        commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);
-
-        //m_Sponza.Render(commandList, m_Frustum, materialDrawFun);
+        m_Scene.Render(commandList, m_Frustum);
     }
-
+    */
+    
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->SetShaderResourceView(0, 0, m_RenderTarget.GetTexture(core::AttachmentPoint::Color0), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     commandList->Draw(3);
 
@@ -566,12 +558,12 @@ void ForwardPlusDemo::OnMouseWheel(core::MouseWheelEventArgs& e)
 {
     if (!ImGui::GetIO().WantCaptureMouse)
     {
-        auto fov = m_Camera.get_FoV();
+        auto fov = m_Camera->get_FoV();
 
         fov -= e.WheelDelta;
         fov = std::clamp(fov, 12.0f, 90.0f);
 
-        m_Camera.set_FoV(fov);
+        m_Camera->set_FoV(fov);
 
         //m_CameraEuler.ScrollProcessing(e);
         //auto fov = m_CameraEuler.get_FoV();

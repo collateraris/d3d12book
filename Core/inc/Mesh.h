@@ -143,6 +143,7 @@ namespace dx12demo::core
         static std::unique_ptr<Mesh> CreateTorus(CommandList& commandList, float diameter = 1, float thickness = 0.333f, size_t tessellation = 32, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreatePlane(CommandList& commandList, float width = 1, float height = 1, bool rhcoords = false);
         static std::unique_ptr<Mesh> CreateQuad(CommandList& commandList, float x, float y, float w, float h, float depth, bool rhcoords = false);
+        static std::unique_ptr<Mesh> CreateSkyPlane(CommandList& commandList, int skyPlaneResolution = 10, float skyPlaneWidth = 10.f, float skyPlaneTop = 0.5f, float skyPlaneBottom = 0.f, int textureRepeat = 4, bool rhcoords = false);
 
         const BSphere& GetBSphere() const;
         const BAABB& GetBAABB() const;

@@ -512,6 +512,116 @@ std::unique_ptr<Mesh> Mesh::CreatePlane(CommandList& commandList, float width, f
     return mesh;
 }
 
+std::unique_ptr<Mesh> Mesh::CreateSkyPlane(CommandList& commandList, int skyPlaneResolution/* = 10*/, float skyPlaneWidth/* = 10.f*/, float skyPlaneTop/* = 0.5f*/,
+    float skyPlaneBottom/* = 0.f*/, int textureRepeat/* = 4*/, bool rhcoords/* = false*/)
+{
+    size_t skyPlaneSize = (skyPlaneResolution + 1) * (skyPlaneResolution + 1);
+    VertexCollection skyPlane(skyPlaneSize, PosNormTexVertex{});
+
+    // Determine the size of each quad on the sky plane.
+    float quadSize = skyPlaneWidth / (float)skyPlaneResolution;
+
+    // Calculate the radius of the sky plane based on the width.
+    float radius = skyPlaneWidth * 0.5f;
+
+    // Calculate the height constant to increment by.
+    float constant = (skyPlaneTop - skyPlaneBottom) / (radius * radius);
+
+    // Calculate the texture coordinate increment value.
+    float textureDelta = (float)textureRepeat / (float)skyPlaneResolution;
+
+    // Loop through the sky plane and build the coordinates based on the increment values given.
+    for (int j = 0; j <= skyPlaneResolution; j++)
+    {
+        for (int i = 0; i <= skyPlaneResolution; i++)
+        {
+            // Calculate the vertex coordinates.
+            float positionX = (-0.5f * skyPlaneWidth) + ((float)i * quadSize);
+            float positionZ = (-0.5f * skyPlaneWidth) + ((float)j * quadSize);
+            float positionY = skyPlaneTop - (constant * ((positionX * positionX) + (positionZ * positionZ)));
+
+            // Calculate the texture coordinates.
+            float tu = (float)i * textureDelta;
+            float tv = (float)j * textureDelta;
+
+            // Calculate the index into the sky plane array to add this coordinate.
+            int index = j * (skyPlaneResolution + 1) + i;
+
+            // Add the coordinates to the sky plane array.
+            skyPlane[index].m_position.x = positionX;
+            skyPlane[index].m_position.y = positionY;
+            skyPlane[index].m_position.z = positionZ;
+            skyPlane[index].m_texCoord.x = tu;
+            skyPlane[index].m_texCoord.y = tv;
+        }
+    }
+
+    // Calculate the number of vertices in the sky plane mesh.
+    size_t vertexCount = (skyPlaneResolution + 1) * (skyPlaneResolution + 1) * 6;
+
+    // Set the index count to the same as the vertex count.
+    size_t indexCount = vertexCount;
+
+    VertexCollection vertices(vertexCount, PosNormTexVertex{});
+    IndexCollection indices(indexCount, 0);
+
+    // Initialize the index into the vertex array.
+    int index = 0;
+
+    for (int j = 0; j < skyPlaneResolution; j++)
+    {
+        for (int i = 0; i < skyPlaneResolution; i++)
+        {
+            size_t upperLeftIndex = j * (skyPlaneResolution + 1) + i;
+            size_t upperRightIndex = j * (skyPlaneResolution + 1) + (i + 1);
+            size_t bottomLeftIndex = (j + 1) * (skyPlaneResolution + 1) + i;
+            size_t bottomRightIndex = (j + 1) * (skyPlaneResolution + 1) + (i + 1);
+
+            // Triangle 1 - Upper Left
+            vertices[index].m_position = skyPlane[upperLeftIndex].m_position;
+            vertices[index].m_texCoord = skyPlane[upperLeftIndex].m_texCoord;
+            indices[index] = index;
+            index++;
+
+            // Triangle 1 - Upper Right
+            vertices[index].m_position = skyPlane[upperRightIndex].m_position;
+            vertices[index].m_texCoord = skyPlane[upperRightIndex].m_texCoord;
+            indices[index] = index;
+            index++;
+
+            // Triangle 1 - Bottom Left
+            vertices[index].m_position = skyPlane[bottomLeftIndex].m_position;
+            vertices[index].m_texCoord = skyPlane[bottomLeftIndex].m_texCoord;
+            indices[index] = index;
+            index++;
+
+            // Triangle 2 - Bottom Left
+            vertices[index].m_position = skyPlane[bottomLeftIndex].m_position;
+            vertices[index].m_texCoord = skyPlane[bottomLeftIndex].m_texCoord;
+            indices[index] = index;
+            index++;
+
+            // Triangle 2 - Upper Right
+            vertices[index].m_position = skyPlane[upperRightIndex].m_position;
+            vertices[index].m_texCoord = skyPlane[upperRightIndex].m_texCoord;
+            indices[index] = index;
+            index++;
+
+            // Triangle 2 - Bottom Right
+            vertices[index].m_position = skyPlane[bottomRightIndex].m_position;
+            vertices[index].m_texCoord = skyPlane[bottomRightIndex].m_texCoord;
+            indices[index] = index;
+            index++;
+        }
+    }
+
+    // Create the primitive object.
+    std::unique_ptr<Mesh> mesh(new Mesh());
+
+    mesh->Initialize(commandList, vertices, indices, rhcoords);
+
+    return mesh;
+}
 
 // Helper for flipping winding of geometric primitives for LH vs. RH coords
 static void ReverseWinding(IndexCollection& indices, VertexCollection& vertices)
