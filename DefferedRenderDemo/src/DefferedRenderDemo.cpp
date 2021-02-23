@@ -371,8 +371,20 @@ void DefferedRenderDemo::OnRender(core::RenderEventArgs& e)
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
-    commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_Normal), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
+    switch (m_Mode)
+    {
+    case EDemoMode::PositionGBuffer:
+        commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_Position), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        break;
+    case EDemoMode::NormalGBuffer:
+        commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_Normal), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+        break;
+    case EDemoMode::AlbedoGBuffer:
+        commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_AlbedoSpecular), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    default:
+        break;
+    }
+ 
     commandList->Draw(3);
 
     commandQueue->ExecuteCommandList(commandList);
@@ -551,17 +563,17 @@ void DefferedRenderDemo::OnGUI()
                 m_pWindow->SetFullscreen(fullscreen);
             }
 
-            if (ImGui::MenuItem("Forward+", "*", m_Mode == EDemoMode::ForwardPlus))
+            if (ImGui::MenuItem("AlbedoGBuffer ", "*", m_Mode == EDemoMode::AlbedoGBuffer))
             {
-                m_Mode = EDemoMode::ForwardPlus;
+                m_Mode = EDemoMode::AlbedoGBuffer;
             }
-            if (ImGui::MenuItem("Forward+ debug", "*", m_Mode == EDemoMode::ForwardPlusDebug))
+            if (ImGui::MenuItem("PositionGBuffer ", "*", m_Mode == EDemoMode::PositionGBuffer))
             {
-                m_Mode = EDemoMode::ForwardPlusDebug;
+                m_Mode = EDemoMode::PositionGBuffer;
             }
-            if (ImGui::MenuItem("Depth buffer debug", "*", m_Mode == EDemoMode::DepthBufferDebug))
+            if (ImGui::MenuItem("NormalGBuffer ", "*", m_Mode == EDemoMode::NormalGBuffer))
             {
-                m_Mode = EDemoMode::DepthBufferDebug;
+                m_Mode = EDemoMode::NormalGBuffer;
             }
 
             ImGui::EndMenu();

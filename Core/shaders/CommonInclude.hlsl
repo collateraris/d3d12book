@@ -166,6 +166,8 @@ void DoSpotLight(in Light light, in float3 V, in float3 P, in float3 N, out Ligh
 
 void DoDirectionalLight(in Light light, in float3 V, float3 P, float3 N, out LightResult result);
 
+float2 GetUV(in float4 posMVP);
+
 // Convert clip space coordinates to view space
 void ClipToView(in float4 clip, in float4x4 inverseProjection, out float4 view)
 {
@@ -345,6 +347,12 @@ void DoDirectionalLight(in Light light, in float3 V, float3 P, float3 N, out Lig
 
     result.Diffuse = light.Color * DoDiffuse(N, L) * light.Intensity;
     result.Specular = light.Color * DoSpecular(V, N, L) * light.Intensity;
+}
+
+float2 GetUV(in float4 posMVP)
+{
+    posMVP.xy = float2(0.5f, 0.5f) + float2(0.5f, -0.5f) * posMVP.xy / posMVP.w;
+    return posMVP.xy;
 }
 
 /// GLOBAL ILLUMINATION ////

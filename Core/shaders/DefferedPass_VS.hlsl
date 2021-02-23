@@ -31,8 +31,8 @@ VertexShaderOutput main(VertexPositionNormalTexture IN)
     VertexShaderOutput OUT;
 
     OUT.Position = mul(MatCB.ModelViewProjectionMatrix, float4(IN.Position, 1.0f));
-    OUT.TexCoord = OUT.Position.xy;
     OUT.NormalVS = mul(MatCB.ModelViewMatrix, IN.Normal);
+    OUT.TexCoord = IN.TexCoord;
     //OUT.TangentVS = mul((float3x3)MatCB.ModelViewMatrix, IN.Tangent);
     //OUT.BinormalVS = mul((float3x3)MatCB.ModelViewMatrix, IN.Bitangent);
 

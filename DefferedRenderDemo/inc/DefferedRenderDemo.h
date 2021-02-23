@@ -25,9 +25,9 @@ namespace dx12demo
 	{
         enum class EDemoMode
         {
-            ForwardPlus,
-            ForwardPlusDebug,
-            DepthBufferDebug,
+            AlbedoGBuffer,
+            PositionGBuffer,
+            NormalGBuffer,
         };
 
 	public:
@@ -141,6 +141,6 @@ namespace dx12demo
 
         bool m_ContentLoaded;
 
-        EDemoMode m_Mode = EDemoMode::ForwardPlus;
+        EDemoMode m_Mode = EDemoMode::AlbedoGBuffer;
 	};
 }

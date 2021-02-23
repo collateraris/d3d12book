@@ -34,7 +34,7 @@ PixelShaderOutput main(VertexShaderOutput IN) : SV_TARGET
 
     output.normal = normalize(IN.NormalVS);
 
-    output.position = IN.TexCoord;
+    output.position = GetUV(IN.Position);
 
     return output;
 }
