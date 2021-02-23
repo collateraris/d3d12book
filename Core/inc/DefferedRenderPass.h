@@ -13,7 +13,6 @@ namespace dx12demo::core
 	enum EGBuffer
 	{
 		G_AlbedoSpecular = 0,
-		G_Position,
 		G_Normal,
 		G_MAX,
 	};
@@ -29,7 +28,6 @@ namespace dx12demo::core
 			rtvFormats.NumRenderTargets = EGBuffer::G_MAX;
 			rtvFormats.RTFormats[EGBuffer::G_AlbedoSpecular] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 			rtvFormats.RTFormats[EGBuffer::G_Normal] = DXGI_FORMAT_R8G8B8A8_SNORM;
-			rtvFormats.RTFormats[EGBuffer::G_Position] = DXGI_FORMAT_R16G16_FLOAT;
 
 			depthBufferFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		}

@@ -20,8 +20,7 @@ SamplerState LinearRepeatSampler : register(s0);
 struct PixelShaderOutput
 {
     float4 albedoSpec : SV_TARGET0;
-    float2 position : SV_TARGET1;
-    float4 normal : SV_TARGET0;
+    float4 normal : SV_TARGET1;
 };
 
 PixelShaderOutput main(VertexShaderOutput IN) : SV_TARGET
@@ -33,8 +32,6 @@ PixelShaderOutput main(VertexShaderOutput IN) : SV_TARGET
     output.albedoSpec = float4(diffuse, specular);
 
     output.normal = normalize(IN.NormalVS);
-
-    output.position = GetUV(IN.Position);
 
     return output;
 }

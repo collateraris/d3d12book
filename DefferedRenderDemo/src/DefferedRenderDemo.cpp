@@ -373,9 +373,6 @@ void DefferedRenderDemo::OnRender(core::RenderEventArgs& e)
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
     switch (m_Mode)
     {
-    case EDemoMode::PositionGBuffer:
-        commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_Position), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-        break;
     case EDemoMode::NormalGBuffer:
         commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_Normal), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
         break;
@@ -566,10 +563,6 @@ void DefferedRenderDemo::OnGUI()
             if (ImGui::MenuItem("AlbedoGBuffer ", "*", m_Mode == EDemoMode::AlbedoGBuffer))
             {
                 m_Mode = EDemoMode::AlbedoGBuffer;
-            }
-            if (ImGui::MenuItem("PositionGBuffer ", "*", m_Mode == EDemoMode::PositionGBuffer))
-            {
-                m_Mode = EDemoMode::PositionGBuffer;
             }
             if (ImGui::MenuItem("NormalGBuffer ", "*", m_Mode == EDemoMode::NormalGBuffer))
             {

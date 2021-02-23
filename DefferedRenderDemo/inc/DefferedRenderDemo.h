@@ -26,7 +26,6 @@ namespace dx12demo
         enum class EDemoMode
         {
             AlbedoGBuffer,
-            PositionGBuffer,
             NormalGBuffer,
         };
 
