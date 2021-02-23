@@ -362,18 +362,16 @@ void DefferedRenderDemo::OnRender(core::RenderEventArgs& e)
     //auto model = XMMatrixScaling(0.1, 0.1, 0.1);
     ComputeMatrices(model, m_ViewMatrix, m_ProjectionMatrix, matrices);
 
-        commandList->SetRenderTarget(m_RenderTarget);
-        commandList->SetViewport(m_RenderTarget.GetViewport());
-        commandList->SetScissorRect(m_ScissorRect);
-        m_DefferedRenderPass.OnPreRender(commandList, e);
-        commandList->SetGraphicsDynamicConstantBuffer(0, matrices);
-        m_Sponza.Render(commandList, m_Frustum, m_DefferedRenderDrawFun);
+    m_DefferedRenderPass.OnPreRender(commandList, e);
+    commandList->SetGraphicsDynamicConstantBuffer(0, matrices);
+    m_Sponza.Render(commandList, m_Frustum, m_DefferedRenderDrawFun);
 
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());
     commandList->SetViewport(m_pWindow->GetRenderTarget().GetViewport());
     commandList->SetPipelineState(m_QuadPipelineState);
     commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->SetGraphicsRootSignature(m_QuadRootSignature);
+    commandList->SetShaderResourceView(0, 0, m_DefferedRenderPass.GetGBuffer(core::EGBuffer::G_Normal), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     commandList->Draw(3);
 

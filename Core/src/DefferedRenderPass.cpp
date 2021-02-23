@@ -39,7 +39,7 @@ void DefferedRenderPass::LoadContent(RenderPassBaseInfo* info)
     UINT width = drpInfo->m_Width;
     UINT height = drpInfo->m_Height;
 
-    m_ScissorRect = { 0, 0, width, height };
+    m_ScissorRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
 
     for (int i = EGBuffer::G_AlbedoSpecular; i < EGBuffer::G_MAX; ++i)
     {
