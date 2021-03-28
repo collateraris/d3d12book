@@ -9,7 +9,8 @@ struct VertexPositionNormalTexture
 
 struct VertexShaderOutput
 {
-    float4 Position    : POSITION;
+    float4 Position    : SV_POSITION;
+    float3 PositionWS  : POS_WS;
     float3 Normal      : NORMAL;
     float2 TexCoord    : TEXCOORD;
 };
@@ -17,6 +18,7 @@ struct VertexShaderOutput
 struct Mat
 {
     matrix ModelMatrix;
+    matrix ModelViewOrtoProjMatrix;
 };
 
 ConstantBuffer<Mat> bMatCB : register(b0);
@@ -25,7 +27,8 @@ VertexShaderOutput main(VertexPositionNormalTexture IN)
 {
     VertexShaderOutput OUT;
 
-    OUT.Position = mul(bMatCB.ModelMatrix, float4(IN.Position, 1.0f));
+    OUT.Position = mul(bMatCB.ModelViewOrtoProjMatrix, float4(IN.Position, 1.0f));
+    OUT.PositionWS = mul(bMatCB.ModelMatrix, float4(IN.Position, 1.0f));
     OUT.TexCoord = IN.TexCoord;
     OUT.Normal  = IN.Normal;
 

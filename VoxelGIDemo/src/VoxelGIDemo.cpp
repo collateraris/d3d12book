@@ -183,6 +183,7 @@ bool VoxelGIDemo::LoadContent()
         core::VoxelGridDebugRenderPassInfo info;
         info.rootSignatureVersion = featureData.HighestVersion;
         info.rtvFormats = m_RenderTarget.GetRenderTargetFormats();
+        info.depthBufferFormat = depthBufferFormat;
         m_VoxelGridDebugRP.LoadContent(&info);
     }
 
@@ -465,22 +466,18 @@ void VoxelGIDemo::OnRender(core::RenderEventArgs& e)
     else if (m_Mode == EDemoMode::VoxelGridDebug)
     {
         m_VoxelGrid.UpdateGrid(commandList, m_Camera);
-        m_VoxelGrid.AttachModelMatrix(commandList, model);
+        m_VoxelGrid.AttachModelMatrix(commandList, model, matrices.ModelViewProjectionMatrix);
         m_Sponza.Render(commandList, m_Frustum, m_VoxelGridFillDrawFun);
 
         commandList->SetRenderTarget(m_RenderTarget);
         commandList->SetViewport(m_RenderTarget.GetViewport());
         commandList->SetScissorRect(m_ScissorRect);
         m_VoxelGridDebugRP.OnPreRender(commandList, e);
-        commandList->TransitionBarrier(m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-        commandList->SetShaderResourceView(2, 0, m_DepthBufferRenderPass.GetDepthBuffer(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-            0, 0, &m_DepthBufferRenderPass.GetSRV());
         m_VoxelGridDebugRP.AttachVoxelGrid(commandList, m_VoxelGrid.GetVoxelGrid());
         m_VoxelGridDebugRP.AttachVoxelGridParams(commandList, m_VoxelGrid);
-        m_VoxelGridDebugRP.AttachInvViewProjMatrix(commandList, m_InvViewProjMatrix);
-        m_VoxelGridDebugRP.OnRender(commandList, e);
+        auto modelViewOrtoProjMatrix = model * m_ViewMatrix * m_VoxelGrid.GetOrthoProj();
+        m_VoxelGridDebugRP.AttachModelViewOrtoProjMatrix(commandList, model, matrices.ModelViewProjectionMatrix);
+        m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
     }
    
     commandList->SetRenderTarget(m_pWindow->GetRenderTarget());

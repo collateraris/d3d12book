@@ -13,7 +13,7 @@ namespace dx12demo::core
 {
 	struct VoxelGridParams
 	{
-		DirectX::XMMATRIX gridViewProjMatrices[3];
+		DirectX::XMMATRIX gridViewProjMatrices;
 		DirectX::XMFLOAT4 gridCellSizes;
 		DirectX::XMVECTOR gridPositions;
 		DirectX::XMVECTOR snappedGridPositions;
@@ -33,6 +33,7 @@ namespace dx12demo::core
 		struct Mat
 		{
 			DirectX::XMMATRIX model;
+			DirectX::XMMATRIX modelViewOrtoProjMatrix;
 		};
 	public:
 		VoxelGrid(int gridSize, float gridHalfExtent = 1000.0f, int renderTargetSize = 64);
@@ -43,10 +44,11 @@ namespace dx12demo::core
 		void UpdateGrid(std::shared_ptr<CommandList>& commandList, Camera& camera);
 
 		void AttachAmbientTex(std::shared_ptr<CommandList>& commandList, const Texture& tex);
-		void AttachModelMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& model);
+		void AttachModelMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& mvp);
 
 		const VoxelGridParams& GetGridParams() const;
 		const StructuredBuffer& GetVoxelGrid() const;
+		const DirectX::XMMATRIX& GetOrthoProj() const;
 
 	private:
 
@@ -54,9 +56,11 @@ namespace dx12demo::core
 
 		RootSignature m_RootSignature;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> m_PipelineState;
+		Microsoft::WRL::ComPtr<ID3D12Resource> mReadBackBuffer;
 
 		VoxelGridParams m_GridParams;
 		DirectX::XMMATRIX m_GridProjMatrix;
+		DirectX::XMMATRIX m_ViewMatrix;
 		const float m_GridHalfExtent = 1000.0f;
 
 		RenderTarget m_RenderTarget;
@@ -67,6 +71,6 @@ namespace dx12demo::core
 		StructuredBuffer m_VoxelGrid;
 
 		int m_GridNum = 32;
-		int m_RenderTargetSize = 64;
+		int m_RenderTargetSize = 1000;
 	};
 }

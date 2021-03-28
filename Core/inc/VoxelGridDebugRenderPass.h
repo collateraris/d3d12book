@@ -15,8 +15,8 @@ namespace dx12demo::core
 		virtual ~VoxelGridDebugRenderPassInfo() = default;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats;
+		DXGI_FORMAT depthBufferFormat;
 		D3D_ROOT_SIGNATURE_VERSION rootSignatureVersion;
-
 	};
 
 	class CommandList;
@@ -25,7 +25,8 @@ namespace dx12demo::core
 	{
 		struct Mat
 		{
-			DirectX::XMMATRIX invViewProj;
+			DirectX::XMMATRIX model;
+			DirectX::XMMATRIX modelViewOrtoProjMatrix;
 		};
 	public:
 		VoxelGridDebugRenderPass();
@@ -39,16 +40,14 @@ namespace dx12demo::core
 
 		virtual void OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e) override;
 
-		void AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex);
 		void AttachVoxelGrid(std::shared_ptr<CommandList>& commandList, const StructuredBuffer& sb);
 		void AttachVoxelGridParams(std::shared_ptr<CommandList>& commandList, const VoxelGrid& voxelGrid);
-		void AttachInvViewProjMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& invViewProj);
+		void AttachModelViewOrtoProjMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& modelViewOrtoProj);
 
 	private:
 
 		RootSignature m_DebugRootSignature;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState> m_DebugPipelineState;
-
 		Mat m_Mat;
 	};
 }

@@ -3,8 +3,9 @@
 #include <DX12LibPCH.h>
 #include <Application.h>
 #include <CommandList.h>
-#include <Quad_VS.h>
+#include <VoxelGridFill_VS.h>
 #include <VoxelGridDebug_PS.h>
+#include <Mesh.h>
 
 using namespace dx12demo::core;
 
@@ -12,10 +13,9 @@ namespace DebugParams
 {
     enum
     {
-        b0GridParamsCB,
-        b1MatCB,
-        t0DepthTex,
-        t1VoxelsGridSB,
+        b0MatCB,
+        b1GridParamsCB,
+        t0VoxelsGridSB,
         NumRootParameters
     };
 }
@@ -36,12 +36,10 @@ void VoxelGridDebugRenderPass::LoadContent(RenderPassBaseInfo* info)
     //debug grid 
     {
         CD3DX12_ROOT_PARAMETER1 rootParameters[DebugParams::NumRootParameters];
-        rootParameters[DebugParams::b0GridParamsCB].InitAsConstantBufferView(0, 0);
-        rootParameters[DebugParams::b1MatCB].InitAsConstantBufferView(1, 0);
-        CD3DX12_DESCRIPTOR_RANGE1 depthTexDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-        rootParameters[DebugParams::t0DepthTex].InitAsDescriptorTable(1, &depthTexDescrRange);
-        CD3DX12_DESCRIPTOR_RANGE1 voxelsGridDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
-        rootParameters[DebugParams::t1VoxelsGridSB].InitAsDescriptorTable(1, &voxelsGridDescrRange);
+        rootParameters[DebugParams::b0MatCB].InitAsConstantBufferView(0, 0);
+        rootParameters[DebugParams::b1GridParamsCB].InitAsConstantBufferView(1, 0);
+        CD3DX12_DESCRIPTOR_RANGE1 voxelsGridDescrRange(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        rootParameters[DebugParams::t0VoxelsGridSB].InitAsDescriptorTable(1, &voxelsGridDescrRange);
 
         // Allow input layout and deny unnecessary access to certain pipeline stages.
         D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
@@ -49,7 +47,6 @@ void VoxelGridDebugRenderPass::LoadContent(RenderPassBaseInfo* info)
             D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
             D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
             D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS;
-
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
         rootSignatureDescription.Init_1_1(DebugParams::NumRootParameters, rootParameters, 0, nullptr, rootSignatureFlags);
@@ -62,19 +59,23 @@ void VoxelGridDebugRenderPass::LoadContent(RenderPassBaseInfo* info)
         struct PipelineStateStream
         {
             CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+            CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
             CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
             CD3DX12_PIPELINE_STATE_STREAM_VS VS;
             CD3DX12_PIPELINE_STATE_STREAM_PS PS;
             CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
             CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+            CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
         } pipelineStateStream;
 
         pipelineStateStream.pRootSignature = m_DebugRootSignature.GetRootSignature().Get();
+        pipelineStateStream.InputLayout = { core::PosNormTexExtendedVertex::InputElementsExtended, core::PosNormTexExtendedVertex::InputElementCountExtended };
         pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        pipelineStateStream.VS = { g_Quad_VS, sizeof(g_Quad_VS) };
+        pipelineStateStream.VS = { g_VoxelGridFill_VS, sizeof(g_VoxelGridFill_VS) };
         pipelineStateStream.PS = { g_VoxelGridDebug_PS, sizeof(g_VoxelGridDebug_PS) };
         pipelineStateStream.Rasterizer = rasterizerDesc;
         pipelineStateStream.RTVFormats = debugInfo->rtvFormats;
+        pipelineStateStream.DSVFormat = debugInfo->depthBufferFormat;
 
         D3D12_PIPELINE_STATE_STREAM_DESC PipelineStateStreamDesc = {
             sizeof(PipelineStateStream), &pipelineStateStream
@@ -94,33 +95,27 @@ void VoxelGridDebugRenderPass::OnPreRender(std::shared_ptr<CommandList>& command
 {
     commandList->SetPipelineState(m_DebugPipelineState);
     commandList->SetGraphicsRootSignature(m_DebugRootSignature);
-    commandList->SetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
 void VoxelGridDebugRenderPass::OnRender(std::shared_ptr<CommandList>& commandList, RenderEventArgs& e)
 {
-    commandList->Draw(3);
-}
 
-void VoxelGridDebugRenderPass::AttachDepthTex(std::shared_ptr<CommandList>& commandList, const Texture& depthTex)
-{
-    commandList->SetShaderResourceView(DebugParams::t0DepthTex, 0, depthTex, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
-        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
 void VoxelGridDebugRenderPass::AttachVoxelGrid(std::shared_ptr<CommandList>& commandList, const StructuredBuffer& sb)
 {
-    commandList->SetShaderResourceView(DebugParams::t1VoxelsGridSB, 0, sb, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
+    commandList->SetShaderResourceView(DebugParams::t0VoxelsGridSB, 0, sb, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE |
         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
 void VoxelGridDebugRenderPass::AttachVoxelGridParams(std::shared_ptr<CommandList>& commandList, const VoxelGrid& voxelGrid)
 {
-    commandList->SetGraphicsDynamicConstantBuffer(DebugParams::b0GridParamsCB, voxelGrid.GetGridParams());
+    commandList->SetGraphicsDynamicConstantBuffer(DebugParams::b1GridParamsCB, voxelGrid.GetGridParams());
 }
 
-void VoxelGridDebugRenderPass::AttachInvViewProjMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& invViewProj)
+void VoxelGridDebugRenderPass::AttachModelViewOrtoProjMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& modelViewOrtoProj)
 {
-    m_Mat.invViewProj = invViewProj;
-    commandList->SetGraphicsDynamicConstantBuffer(DebugParams::b1MatCB, m_Mat);
+    m_Mat.model = model;
+    m_Mat.modelViewOrtoProjMatrix = modelViewOrtoProj;
+    commandList->SetGraphicsDynamicConstantBuffer(DebugParams::b0MatCB, m_Mat);
 }

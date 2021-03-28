@@ -94,7 +94,7 @@ namespace dx12demo
         core::QuadRenderPass m_QuadRenderPass;
         core::VoxelGridDebugRenderPass m_VoxelGridDebugRP;
 
-        core::VoxelGrid m_VoxelGrid = core::VoxelGrid(32, 1200.f, 64);
+        core::VoxelGrid m_VoxelGrid = core::VoxelGrid(256, 2048.f, 1024);
 
         std::vector<core::Light> m_Lights;
 

@@ -2,7 +2,7 @@
 
 struct GRID_PARAMS
 {
-	matrix gridViewProjMatrices[3];
+	matrix gridViewProjMatrices;
 	float4 gridCellSizes;
 	float4 gridPositions;
 	float4 snappedGridPositions;
@@ -64,10 +64,9 @@ uint GetNormalIndex(in float3 normal, out float dotProduct)
 	return index;
 };
 
-// get index into a 32x32x32 grid for the specified position
 int GetGridIndex(in int3 position)
 {
-	return ((position.z * 1024) + (position.y * 32) + position.x);
+	return ((position.z * bGridParams.gridCellSizes.z * bGridParams.gridCellSizes.z) + (position.y * bGridParams.gridCellSizes.z) + position.x);
 }
 
 // Instead of outputting the rasterized information into the bound render-target, it will be
@@ -79,6 +78,7 @@ void main(GeometryShaderOutput input)
 {
 	// get surface color 
 	float3 base = tAmbientTexture.Sample(sLinearSampler, input.TexCoord).rgb;
+	base = float3(1., 0., 1.);
 
 	// encode color in linear space into unsigned integer
 	float3 baseLinear = lerp(base / 12.92f, pow((base + 0.055f) / 1.055f, 2.4f), base > 0.04045f);
@@ -118,11 +118,14 @@ void main(GeometryShaderOutput input)
 	offset = round(offset);
 
 	// get position in the voxel-grid
-	int3 voxelPos = int3(16, 16, 16) + int3(offset.x, offset.y, offset.z);
+	int centerVoxelGrid = int(bGridParams.gridCellSizes.z * 0.5);
+	int3 voxelPos = int3(centerVoxelGrid, centerVoxelGrid, centerVoxelGrid) + int3(offset.x, offset.y, offset.z);
 
 	// To avoid raise conditions between multiple threads, that write into the same location, atomic
 	// functions have to be used. Only output voxels that are inside the boundaries of the grid.
-	if ((voxelPos.x > -1) && (voxelPos.x < 32) && (voxelPos.y > -1) && (voxelPos.y < 32) && (voxelPos.z > -1) && (voxelPos.z < 32))
+	if ((voxelPos.x > -1) && (voxelPos.x < bGridParams.gridCellSizes.z) 
+		&& (voxelPos.y > -1) && (voxelPos.y < bGridParams.gridCellSizes.z) 
+		&& (voxelPos.z > -1) && (voxelPos.z < bGridParams.gridCellSizes.z))
 	{
 		// get index into the voxel-grid
 		int gridIndex = GetGridIndex(voxelPos);
@@ -131,6 +134,6 @@ void main(GeometryShaderOutput input)
 		InterlockedMax(uVoxelsGrid[gridIndex].colorMask, colorOcclusionMask);
 
 		// output normal according to normal index
-		InterlockedMax(uVoxelsGrid[gridIndex].normalMasks[normalIndex], normalMask);
+		//InterlockedMax(uVoxelsGrid[gridIndex].normalMasks[normalIndex], normalMask);
 	}
 }

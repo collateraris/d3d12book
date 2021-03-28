@@ -102,11 +102,6 @@ void VoxelGrid::Init()
 
         m_RootSignature.SetRootSignatureDesc(rootSignatureDescription.Desc_1_1, featureData.HighestVersion);
 
-        // disable depth-write and depth-test, in order to fully "voxelize" scene geometry 
-        CD3DX12_DEPTH_STENCIL_DESC depthDesc(D3D12_DEFAULT);
-        depthDesc.DepthEnable = false;
-        depthDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-
         D3D12_RENDER_TARGET_BLEND_DESC blendDesc;
         blendDesc.BlendEnable = true;
         blendDesc.LogicOpEnable = false;
@@ -119,17 +114,19 @@ void VoxelGrid::Init()
         blendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
         blendDesc.RenderTargetWriteMask = 0;
 
+        CD3DX12_DEPTH_STENCIL_DESC depthDesc(D3D12_DEFAULT);
+        depthDesc.DepthEnable = false;
+        depthDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+
         // disable color-write since instead of outputting the rasterized voxel information into the bound render-target,
         // it will be written into a 3D structured buffer/ texture 
         CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
-        //rasterizerDesc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_ON;
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pipelineStateStream;
         ZeroMemory(&pipelineStateStream, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
         pipelineStateStream.pRootSignature = m_RootSignature.GetRootSignature().Get();
         pipelineStateStream.InputLayout = { core::PosNormTexExtendedVertex::InputElementsExtended, core::PosNormTexExtendedVertex::InputElementCountExtended };
         pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-        pipelineStateStream.DepthStencilState = depthDesc;
         pipelineStateStream.SampleMask = UINT_MAX;
         pipelineStateStream.VS = { g_VoxelGridFill_VS, sizeof(g_VoxelGridFill_VS) };
         pipelineStateStream.GS = { g_VoxelGridFill_GS, sizeof(g_VoxelGridFill_GS) };
@@ -141,15 +138,28 @@ void VoxelGrid::Init()
         pipelineStateStream.NumRenderTargets = 1;
         pipelineStateStream.SampleDesc.Count = 1;
         pipelineStateStream.SampleDesc.Quality = 0;
+        pipelineStateStream.DepthStencilState = depthDesc;
 
         ThrowIfFailed(device->CreateGraphicsPipelineState(&pipelineStateStream, IID_PPV_ARGS(&m_PipelineState)));
     }
+    CD3DX12_HEAP_PROPERTIES prop(D3D12_HEAP_TYPE_READBACK);
+    CD3DX12_RESOURCE_DESC buffer = CD3DX12_RESOURCE_DESC::Buffer(sizeof(VoxelOfVoxelGridClass) * m_GridNum * m_GridNum * m_GridNum);
+    ThrowIfFailed(device->CreateCommittedResource(
+        &prop,
+        D3D12_HEAP_FLAG_NONE,
+        &buffer,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&mReadBackBuffer)));
 
     {
         m_GridParams.gridCellSizes.x = m_GridHalfExtent / (m_GridNum * 0.5f);
         m_GridParams.gridCellSizes.y = 1.0f / m_GridParams.gridCellSizes.x;
+        m_GridParams.gridCellSizes.z = m_GridNum;
+        m_GridParams.gridCellSizes.w = m_GridHalfExtent;
 
         m_GridProjMatrix = XMMatrixOrthographicLH(2.0 * m_GridHalfExtent, 2.0 * m_GridHalfExtent, 0.f, 2.0 * m_GridHalfExtent);
+        m_GridParams.gridViewProjMatrices = m_GridProjMatrix;
     }
 }
 
@@ -169,46 +179,31 @@ void VoxelGrid::UpdateGrid(std::shared_ptr<CommandList>& commandList, Camera& ca
     commandList->SetGraphicsRootSignature(m_RootSignature);
 
     {
+        commandList->TransitionBarrier(m_VoxelGrid.GetD3D12Resource(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+        commandList->CopyResource(mReadBackBuffer, m_VoxelGrid.GetD3D12Resource());
+        VoxelOfVoxelGridClass* mappedData = nullptr;
+        ThrowIfFailed(mReadBackBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedData)));
+        int sizeGrid = m_GridNum * m_GridNum * m_GridNum;
+        for (int i = 0; i < sizeGrid; i++)
+        {
+            (*mappedData).colorMask = 0;
+            mappedData++;
+
+        }
+        mReadBackBuffer->Unmap(0, nullptr);
+    }
+
+    m_ViewMatrix = camera.get_ViewMatrix();
+
+    {
         m_GridParams.lastSnappedGridPositions = m_GridParams.snappedGridPositions;
-        //m_GridParams.gridPositions = camera.GetPosition() +(-camera.GetDirection() * 0.5f * m_GridHalfExtent);
-        m_GridParams.gridPositions = { 50, 2, -7, 1};
-        //m_GridParams.gridPositions = XMVECTOR{ 50, 2, -7, 1 } + camera.GetDirection() * 0.5f * m_GridHalfExtent;
+        m_GridParams.gridPositions = camera.GetPosition();
 
         m_GridParams.snappedGridPositions = m_GridParams.gridPositions;
         m_GridParams.snappedGridPositions *= m_GridParams.gridCellSizes.y;
         m_GridParams.snappedGridPositions = XMVectorFloor(m_GridParams.snappedGridPositions);
         m_GridParams.snappedGridPositions *= m_GridParams.gridCellSizes.x;
         m_GridParams.snappedGridPositions = DirectX::XMVectorSetW(m_GridParams.snappedGridPositions, 0.0f);
-
-        XMVECTOR offset, translate;
-        XMMATRIX translationM, rotationM;
-        // back to front viewProjMatrix
-        {
-            offset = { 0.0, 0.0, m_GridHalfExtent};
-            translate = m_GridParams.snappedGridPositions + offset;
-            translationM = XMMatrixTranslationFromVector(-translate);
-            m_GridParams.gridViewProjMatrices[0] = translationM * m_GridProjMatrix;
-        }
-
-        // right to left viewProjMatrix
-        {
-            offset = { m_GridHalfExtent, 0.0, 0.0};
-            translate = m_GridParams.snappedGridPositions + offset;
-            rotationM = XMMatrixRotationY(-90.0f);
-            translationM = XMMatrixTranslationFromVector(-translate);
-            m_GridParams.gridViewProjMatrices[1] = rotationM * translationM * m_GridProjMatrix;
-            //m_GridParams.gridViewProjMatrices[1] = translationM * rotationM * m_GridProjMatrix;
-        }
-
-        // top to down viewProjMatrix
-        {
-            offset = { 0.0, m_GridHalfExtent, 0.0};
-            translate = m_GridParams.snappedGridPositions + offset;
-            rotationM = XMMatrixRotationX(90.0f);
-            translationM = XMMatrixTranslationFromVector(-translate);
-            m_GridParams.gridViewProjMatrices[2] = rotationM * translationM * m_GridProjMatrix;
-            //m_GridParams.gridViewProjMatrices[2] = translationM * rotationM * m_GridProjMatrix;
-        }
     }
 
     commandList->SetGraphicsDynamicConstantBuffer(UpdateParams::b1GridParamsCB, m_GridParams);
@@ -220,9 +215,10 @@ void VoxelGrid::AttachAmbientTex(std::shared_ptr<CommandList>& commandList, cons
     commandList->SetShaderResourceView(UpdateParams::t0AmbientTexture, 0, tex);
 }
 
-void VoxelGrid::AttachModelMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& model)
+void VoxelGrid::AttachModelMatrix(std::shared_ptr<CommandList>& commandList, const DirectX::XMMATRIX& model, const DirectX::XMMATRIX& mvp)
 {
     m_Mat.model = model;
+    m_Mat.modelViewOrtoProjMatrix = mvp;
     commandList->SetGraphicsDynamicConstantBuffer(UpdateParams::b0MatCB, m_Mat);
 }
 
@@ -234,4 +230,8 @@ const VoxelGridParams& VoxelGrid::GetGridParams() const
 const StructuredBuffer& VoxelGrid::GetVoxelGrid() const
 {
     return m_VoxelGrid;
+}
+const DirectX::XMMATRIX& VoxelGrid::GetOrthoProj() const
+{
+    return m_GridProjMatrix;
 }
