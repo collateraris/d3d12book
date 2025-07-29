@@ -8,4 +8,5 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 /build_vs2019
+/build_vs2022
 .vs/
