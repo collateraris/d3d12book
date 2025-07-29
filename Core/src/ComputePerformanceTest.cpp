@@ -84,7 +84,7 @@ void ComputePerformanceTest::StartCompute(std::shared_ptr<CommandList>& commandL
 
 void ComputePerformanceTest::InitBuffers(std::shared_ptr<CommandList>& commandList)
 {  
-    std::vector<uint32_t> bufferArr(1024, 0);
+    std::vector<uint32_t> bufferArr(262144, 0);
     for (auto& buffer : bufferArr)
     {
         buffer = 1;
@@ -104,6 +104,6 @@ void ComputePerformanceTest::Compute(std::shared_ptr<CommandList>& commandList)
     commandList->SetUnorderedAccessView(ComputeParams::u1OutputParSB, 0, m_OutputParBuffer);
 
     //commandList->Dispatch(1, 1, 1);
-    commandList->Dispatch(4, 1, 1);
+    commandList->Dispatch(256, 1, 1);
  
 }
