@@ -15,6 +15,7 @@
 #include <GridViewFrustums.h>
 #include <LightCulling.h>
 #include <LightsToView.h>
+#include <ComputePerformanceTest.h>
 #include <DepthBufferRenderPass.h>
 #include <DebugDepthBufferRenderPass.h>
 #include <ForwardPlusRenderPass.h>
@@ -124,6 +125,7 @@ namespace dx12demo
         core::DispatchParams m_FrustumGridDispatchParams;
         core::DispatchParams m_LightsCullDispatchParams;
         core::ScreenToViewParams m_ScreenToViewParams;
+        core::ComputePerformanceTest m_ComputePerformanceTest;
 
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_MaterialDrawFun;
         std::function<void(std::shared_ptr<core::CommandList>&, std::shared_ptr<core::Material>&)> m_ForwardPlusDrawFun;

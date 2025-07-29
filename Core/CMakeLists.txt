@@ -60,6 +60,7 @@ set( HEADER_FILES
 	inc/VoxelGridDebugRenderPass.h
     inc/Window.h
     inc/d3dx12.h
+    inc/ComputePerformanceTest.h
 )
 
 set( SOURCE_FILES
@@ -111,6 +112,7 @@ set( SOURCE_FILES
 	src/VoxelGrid.cpp
 	src/VoxelGridDebugRenderPass.cpp
     src/Window.cpp
+    src/ComputePerformanceTest.cpp
 )
 
 set( IMGUI_HEADERS
@@ -214,6 +216,7 @@ set( SHADER_FILES
 	shaders/AtmosphericScatteringSkybox_PS.hlsl
 	shaders/PrecomputeAtmosphericScatteringSkybox_CS.hlsl
 	shaders/PrecomputeParticleDensityForAtmScat_PS.hlsl
+	shaders/Sum_CS.hlsl
 )
 
 set( SHADER_COMMON_FILES

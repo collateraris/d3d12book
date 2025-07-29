@@ -219,6 +219,10 @@ bool ForwardPlusDemo::LoadContent()
     }
 
     {
+        m_ComputePerformanceTest.InitBuffers(commandList);
+    }
+
+    {
         m_ComputeLightsToView.InitLightsBuffer(commandList, m_Lights);
     }
 
@@ -437,6 +441,9 @@ void ForwardPlusDemo::OnRender(core::RenderEventArgs& e)
         commandList->SetGraphicsDynamicConstantBuffer(static_cast<int>(SceneRootParameters::MatricesCB), matrices);     
         m_Sponza.Render(commandList, m_Frustum, m_DepthBufferDrawFun);
     }
+
+    m_ComputePerformanceTest.StartCompute(commandList);
+    m_ComputePerformanceTest.Compute(commandList);
 
     if (m_Mode == EDemoMode::DepthBufferDebug)
     {      
