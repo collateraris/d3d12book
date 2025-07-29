@@ -103,6 +103,7 @@ void ComputePerformanceTest::Compute(std::shared_ptr<CommandList>& commandList)
     commandList->SetUnorderedAccessView(ComputeParams::u0InputArrSB, 0, m_InputArrBuffer);
     commandList->SetUnorderedAccessView(ComputeParams::u1OutputParSB, 0, m_OutputParBuffer);
 
-    commandList->Dispatch(1, 1, 1);
+    //commandList->Dispatch(1, 1, 1);
+    commandList->Dispatch(4, 1, 1);
  
 }
