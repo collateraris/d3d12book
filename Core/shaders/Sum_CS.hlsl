@@ -50,6 +50,7 @@ void main(ComputeShaderInput IN)
     //ex 1 28\32 occupancy 2.05us  [numthreads(1024, 1, 1)] rtx4090
     //ex 1 28\32 occupancy 2.05us  [numthreads(256, 1, 1)] rtx4090
     //ex 1a 28\32 occupancy 6.14us [numthreads(1024, 1, 1)] 262144 elements rtx4090
+    //ex 1a 28\32 occupancy 10.24us [numthreads(1024, 1, 1)] 262144 elements rtx3070
     //InterlockedAdd(outputPar[0], inputArr[IN.dispatchThreadID.x]);
 
     //ex 2 29\32 occupancy 2.05us [numthreads(1024, 1, 1)] rtx4090
@@ -61,6 +62,7 @@ void main(ComputeShaderInput IN)
      //   InterlockedAdd(outputPar[0],counterPar);
 
     //ex 2a  28\32 occupancy 3.07us [numthreads(1024, 1, 1)] 262144 elements rtx4090
+    //ex 2a  28\32 occupancy 8.19 us [numthreads(1024, 1, 1)] 262144 elements rtx3070
     //InterlockedAdd(counterPar, inputArr[IN.dispatchThreadID.x]);
     
     //GroupMemoryBarrierWithGroupSync();
@@ -95,9 +97,10 @@ void main(ComputeShaderInput IN)
     }
 
     if (IN.dispatchThreadID.x == 0)
-        InterlockedAdd(outputPar[0],counterArr[0]);
-    */
+        InterlockedAdd(outputPar[0],counterArr[0]);*/
+    
     //ex 4a 19\32 occupancy 5.12 us [numthreads(1024, 1, 1)] 262144 elements rtx4090
+    //ex 4a 19\32 occupancy 19.46 us [numthreads(1024, 1, 1)] 262144 elements rtx3070
     counterArr[IN.groupThreadID.x] = inputArr[IN.dispatchThreadID.x];
     GroupMemoryBarrierWithGroupSync();
     
@@ -111,4 +114,5 @@ void main(ComputeShaderInput IN)
 
     if (IN.groupThreadID.x == 0)
         InterlockedAdd(outputPar[0],counterArr[0]);
+
 }
